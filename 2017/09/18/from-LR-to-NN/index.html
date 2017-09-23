@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<!-- Head tag -->
+<head>
+    <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--Description-->
+    
+        <meta name="description" content="今天结束了Ng的Deep Learning系列课程Class1:Neural Networks and Deep Learning。习题中公式部分Ng仅给了结论，此处将给出完整推导。此外，在Week3练习中我对Logistic Regression和Neural Network之间的联系和区别比较模糊，本文也会将二者联系起来稍作总结。">
+    
+
+    <!--Author-->
+    
+        <meta name="author" content="ringo">
+    
+
+    <!-- Title -->
+    
+    <title>从LR 到 NN | 林戈的小酒馆。</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="//cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Custom Fonts -->
+    <link href="//cdn.bootcss.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='//fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]--><!-- hexo-inject:begin --><!-- hexo-inject:end -->
+</head>
+
+<body  background-color:rgb(255,241,229);>
+
+    <!-- hexo-inject:begin --><!-- hexo-inject:end --><!-- Content -->
+    <section class="article-container">
+<!-- Back Home -->
+<a class="nav-back" href="/">
+    <i class="fa fa-puzzle-piece"></i>
+</a>
+
+<!-- Page Header -->
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1>从LR 到 NN</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Main Content -->
+            <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <p>今天结束了Ng的Deep Learning系列课程Class1:<em>Neural Networks and Deep Learning</em>。习题中公式部分Ng仅给了结论，此处将给出完整推导。此外，在Week3练习中我对Logistic Regression和Neural Network之间的联系和区别比较模糊，本文也会将二者联系起来稍作总结。</p>
+<h1>1.从Linear Regression说起</h1>
+<p>在介绍逻辑回归(Logistic Regression)之前，我想简要介绍一下线性回归(Linear Regression)方法。线性回归不仅能解决线性分类问题，多元线性回归也能解决非线性分类问题。它产生的预测是连续的，<strong>这个特性使它适合对连续变量进行预测</strong>。针对一组连续或离散的序列对{$(x_0, y_0), (x_1, y_1), ...(x_n, y_n)$}, 假设其图像如下：</p>
+<p><img src="http://www.stat.yale.edu/Courses/1997-98/101/multregr.gif" alt="Linear Classification"></p>
+<p>此外假设其feature个数为$m$(例如一个$x$样本中就包含很多维度的数据)， 即使用$m$元线性参数拟合该数据，则针对某一个样本$(x_i, y_i)$，假设函数(hypothesis function)$h_\theta(x_i)$为：</p>
+<p>$$h_\theta(x_i) = \sum_{j=1}^{m}\theta_j {x^{[j]}_i}$$</p>
+<p>接着我们使用平方损失函数(loss function)进行求预测和实际的平方差：</p>
+<p>$$L(\theta) = \frac{1}{2m}\sum_{j=1}^{m}(h_{\theta}(x^i) - y^i)^2$$</p>
+<p>再使用gradient descent, 对这$m$元参数$\theta$:</p>
+<p>$$\theta := \theta - \alpha \cdot \frac{1}{m} \cdot x^T \cdot (x \cdot \theta - y)$$</p>
+<p>平方损失函数是凸函数， 因此后续工作就是不断迭代直至收敛，这其中要注意2个问题：</p>
+<ul>
+<li>考虑到$m$越大训练误差越小，最终可能导致过拟合，因此需要加一些正则项。</li>
+<li>极大似然估计(maximum likelihood estimation)等价于最小化平方损失(minimization of MSE)的前提是，样本噪声符合高斯分布。因此如果数据噪声不符合高斯分布，仍要按极大似然估计思想进行损失计算，可能要改为计算交叉熵(cross-entropy)。</li>
+</ul>
+<h1>2. Logistic Regression</h1>
+<p>此处搬运Andrew Ng课程<a href="https://www.coursera.org/learn/neural-networks-deep-learning/" target="_blank" rel="external">Neural Networks and Deep Learning</a>作业(Week2, Assignment2)中的一些表述：
+我们将一张64x64的图像分为RGB三层，将这64x64x3共12288个像素(其值在$[0, 255]$之间)整合为1列，因此按照Linear Regression中的说法，$x$的“参数有12288元”，如下图：</p>
+<p><img src="https://hub.coursera-notebooks.org/user/urcovrhtnaqhimixnfkchy/notebooks/Week%202/Logistic%20Regression%20as%20a%20Neural%20Network/images/LogReg_kiank.png" alt=""></p>
+<p>我们首先将这：</p>
+<p>$$z^{(i)} = w^T x^{(i)} + b \tag{1}$$</p>
+<p>$$\hat{y}^{(i)} = a^{(i)} = sigmoid(z^{(i)})\tag{2}$$</p>
+<p>$$ \mathcal{L}(a^{(i)}, y^{(i)}) =  - y^{(i)}  \log(a^{(i)}) - (1-y^{(i)} )  \log(1-a^{(i)})\tag{3}$$</p>
+<p>$$ J = \frac{1}{m} \sum_{i=1}^m \mathcal{L}(a^{(i)}, y^{(i)})\tag{4}$$</p>
+<p>用一张<a href="http://ronny.rest/blog/post_2017_08_12_logistic_regression_derivative/" target="_blank" rel="external">图</a>描述此过程：</p>
+<p><img src="http://ronny.rest/media/blog/2017/2017_08_12_logistic_regression_derivative/logistic_regression_graph.png" alt="lr"></p>
+<p>逻辑回归的相比线性回归，差异从公式(2)(3)中已初见端倪：</p>
+<p>首先，<strong>增加了激活函数(activation function)。</strong></p>
+<p>这是很关键的一步，它相当于对原有的线性加权函数做了一个非线性变换。我们不禁要问，非线性变换的意义在哪？</p>
+<p>为了更清晰地解释非线性变换的意义，此处将激活函数简化为ReLU(Rectified Linear Unit), 其函数特性如下：</p>
+<p>图像如下：
+<img src="https://relinklabs.com/imager/uploads/images/1107/Screen-Shot-2017-06-23-at-1.27.11-PM_d4e4e04a52bfbdbeab5ba4d2cf1d1390.png" alt=""></p>
+<p>我们简要对线性回归和逻辑回归做一下对比：</p>
+<table>
+<thead>
+<tr>
+<th>item</th>
+<th style="text-align:center">Linear Regression</th>
+<th style="text-align:center">Logistic Regression</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hypothesis function</td>
+<td style="text-align:center">wx</td>
+<td style="text-align:center">same</td>
+</tr>
+<tr>
+<td>activation function</td>
+<td style="text-align:center">sigmoid</td>
+<td style="text-align:center">-</td>
+</tr>
+<tr>
+<td>loss function</td>
+<td style="text-align:center">log</td>
+<td style="text-align:center">square</td>
+</tr>
+<tr>
+<td>predict</td>
+<td style="text-align:center">0/1</td>
+<td style="text-align:center">actual value</td>
+</tr>
+</tbody>
+</table>
+<h1>3. Shallow Neural Network</h1>
+<p>此处介绍一个2隐含层(也就是3-layer)神经网络，稍后我们将看到它和Logistic Regression的区别。</p>
+<p><img src="http://cs231n.github.io/assets/nn1/neural_net2.jpeg" alt="neural network"></p>
+<h1>4. 参考材料</h1>
+<ul>
+<li><a href="https://www.coursera.org/learn/neural-networks-deep-learning/" target="_blank" rel="external">Andrew Ng的Deep Learning课程</a></li>
+<li><a href="http://ronny.rest/blog/post_2017_08_12_logistic_regression_derivative/" target="_blank" rel="external">Derivatives for logistic regression - step by step</a></li>
+</ul>
+
+ 
+                <!-- Meta -->
+                <div class="post-meta">
+                    <hr>
+                    <br>
+                    <div class="post-tags">
+                        
+                            
+
+<a href="/tags/机器学习/">#机器学习</a> <a href="/tags/深度学习/">#深度学习</a> <a href="/tags/神经网络/">#神经网络</a>
+
+
+                        
+                    </div>
+                    <div class="post-date">
+                        2017 年 09 月 18 日
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <!-- Disqus Comments -->
+
+
+            </div>
+        </div>
+    </div>
+</article>
+</section>
+
+    <!-- Scripts -->
+    <!-- jQuery -->
+<script src="//cdn.bootcss.com/jquery/2.2.1/jquery.min.js"></script>
+<!-- Bootstrap -->
+<script src="//cdn.bootcss.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+	console.log('Hexo-theme-hollow designed by zchen9 🙋 © 2015-' + (new Date()).getFullYear());
+</script>
+
+    <!-- Google Analytics -->
+    
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+                    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+                m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+        ga('create', 'UA-98699464-1', 'auto');
+        ga('send', 'pageview');
+
+    </script>
+
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config("");
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="custom_mathjax_source">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
+</body>
+
+</html>

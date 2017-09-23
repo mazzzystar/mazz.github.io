@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<!-- Head tag -->
+<head>
+    <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--Description-->
+    
+        <meta name="description" content="近期工作中调整了搜索得分策略，考虑影响面比较广，原工程里并没有A/B测试，因此完整实现了A/B测试部分代码，在此记录心得。">
+    
+
+    <!--Author-->
+    
+        <meta name="author" content="ringo">
+    
+
+    <!-- Title -->
+    
+    <title>搜索策略的 A/B 测试 | 林戈的小酒馆。</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="//cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Custom Fonts -->
+    <link href="//cdn.bootcss.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='//fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]--><!-- hexo-inject:begin --><!-- hexo-inject:end -->
+</head>
+
+<body  background-color:rgb(255,241,229);>
+
+    <!-- hexo-inject:begin --><!-- hexo-inject:end --><!-- Content -->
+    <section class="article-container">
+<!-- Back Home -->
+<a class="nav-back" href="/">
+    <i class="fa fa-puzzle-piece"></i>
+</a>
+
+<!-- Page Header -->
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1>搜索策略的 A/B 测试</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Main Content -->
+            <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <p>        近期工作中调整了搜索得分策略，考虑影响面比较广，原工程里并没有A/B测试，因此完整实现了A/B测试部分代码，在此记录心得。</p>
+<h1>一. 什么是A/B测试</h1>
+<p>我们以具体例子引入。
+Airbnb曾经推出了2个关于推广产品的文案：</p>
+<ul>
+<li>文案一：“邀请你的好友可以获得25美元”</li>
+<li>文案二：“邀请你的好友将使好友获得25美元”</li>
+</ul>
+<p>如下图：</p>
+<p><img src="https://oozx0w2f09-flywheel.netdna-ssl.com/wp-content/uploads/2016/06/airbnb-referral-ab-test-e1466712507511.png" alt=""></p>
+<p>        哪种文案更好呢？我的直觉是文案一，但没有数据支撑很难下结论。一个对策是：将这2个文案同时发布到线上，各为其分配50%流量，观察二者点击率的差异。事实上后来结果令人吃惊，文案二效果好于文案一。</p>
+<p>        以上想法就是A/B测试的基本思想。简单来说就是<strong>把总流量分为A和B两份，部分用于旧方案，部分用于新方案，上线一段时候后对比二者各项指标（点击率、转化率），从而衡量新策略的优劣</strong>。A/B测试是一种横跨前端/后台/算法的产品优化思想，例如UI层面上的广告位置在屏幕中的偏移量对点击流量的影响（Google），又或新搜索/推荐策略的提出，最终效果均需要线上A/B测试验证。</p>
+<h1>二. 算法策略类的A/B测试</h1>
+<h2>算法策略类的优化步骤</h2>
+<p>搜索/挖掘/推荐三者的优化步骤很相似，一般流程是：</p>
+<ul>
+<li>模型训练/策略优化，并自行确认效果</li>
+<li>交给PM评估几组（100-1000条，视影响面情况而定）数据</li>
+<li>修复、优化PM评估过程中发现的问题</li>
+<li>由PM确认新模型/策略在效果上确实有提升</li>
+<li>线上小流量A/B测试</li>
+<li>线上流量对比有提升，考虑全量上线</li>
+</ul>
+<h2>搜索策略架构简介</h2>
+<p>        简单的搜索算法主要分为3部分：<code>倒排索引</code>（离线）和<code>keyword搜索</code>（实时），和<code>实时更新索引</code>。因<code>keyword搜索</code>部分用户感知最强烈、影响面最广，因此大部分A/B测试都设置在这一阶段。
+<code>keyword搜索</code>阶段总体分为如下几个步骤：</p>
+<ul>
+<li>用户query分析</li>
+<li>按照query中的条件，构建过滤（Filter）/查询(Query)条件</li>
+<li>查询得到召回集(Recall Set)</li>
+<li>对结果集进行打分(Score)、排序(Rank)</li>
+</ul>
+<p>流程图如下：</p>
+<p><img src="https://sfault-image.b0.upaiyun.com/200/831/2008316443-59b35fd86b894_articlex" alt="clipboard.png"></p>
+<p>文字解释为：</p>
+<ul>
+<li>首先对用户query进行分析，获取其<strong>可用<code>Filter</code>做过滤的term</strong>和<strong>只能通过查询<code>Query</code>得到的term</strong>，原因很简单，查询比过滤慢多了</li>
+<li>从索引里查询、过滤得到结果候选集Recall Set</li>
+<li>对结果进行相似度打分、排序</li>
+<li>召回最终结果</li>
+</ul>
+<p>关于第一步，实际sample如下：</p>
+<p><img src="https://sfault-image.b0.upaiyun.com/221/020/2210206743-59b35e53cfcfa_articlex" alt="sample.png"></p>
+<p>注意到<code>industry</code>和<code>city</code>字段可以通过<code>Filter</code>过滤以提高检索速度。</p>
+<h2>A/B测试实际开发</h2>
+<h3>设计思想</h3>
+<p>        在设计之初我们就应该明确：到底哪些环节可以做A/B测试呢？</p>
+<p>        答案是：<strong>全部。</strong></p>
+<p>        整个<code>keyword搜索</code>过程中，Query分析、Query过滤和查询、结果集召回、结果集打分、排序过程均可以设置A/B测试。在实际使用中，我们往往一次只需要在某一个环节做A/B测试，此时可以将其他环节的策略置为相同策略。但<strong>从设计思想上，编写伊始就针对所有环节配置A/B测试是值得推荐的。</strong></p>
+<h3>代码编写</h3>
+<h4>1. 原始策略类的编写</h4>
+<p>首先针对所有环节编写一个<code>Strategy</code>接口，
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">ISearchStrategy</span> </span>&#123;</div><div class="line">    # query解析，构建搜索条件</div><div class="line">    <span class="function"><span class="keyword">public</span> ISearchConditionParser <span class="title">getSearchConditionParser</span><span class="params">()</span></span>;</div><div class="line">    </div><div class="line">    # 打分</div><div class="line">    <span class="function"><span class="keyword">public</span> SortDocsScorer <span class="title">getSortDocsScorer</span><span class="params">(SearchCondition searchCondition)</span></span>;</div><div class="line">    </div><div class="line">    # 排序</div><div class="line">    <span class="function"><span class="keyword">public</span> ISortDocsSorter <span class="title">getSortDocsSorter</span><span class="params">(SearchCondition searchCondition)</span></span>;</div><div class="line">    </div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setStrategyName</span><span class="params">(String strategyName)</span></span>;</div><div class="line">	</div><div class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getStrategyName</span><span class="params">()</span></span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>        为何以上接口没有查询、过滤环节的方法呢？这是因为所有策略的查询和过滤过程均相同，不同的是query解析过程中封装的filter/query参数，因此没有必要添加该方法。</p>
+<p>接下来不同策略的实现：</p>
+<p>        例如我们本次只是对<code>结果集打分</code>环节做A/B测试，那么编写2个类：<code>DefaultSearchStrategy</code>和<code>NewScoreStrategy</code>,先来看<code>DefaultSearchStrategy</code>:
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">DefaultSearchStrategy</span> <span class="keyword">implements</span> <span class="title">ISearchStrategy</span> </span>&#123;</div><div class="line">	<span class="keyword">private</span> String strategyName;</div><div class="line">	</div><div class="line">	<span class="function"><span class="keyword">public</span> <span class="title">DefaultSearchStrategy</span><span class="params">()</span> </span>&#123;</div><div class="line">		</div><div class="line">	&#125;</div><div class="line">	</div><div class="line">	<span class="meta">@Override</span></div><div class="line">	<span class="function"><span class="keyword">public</span> ISearchConditionParser <span class="title">getSearchConditionParser</span><span class="params">()</span> </span>&#123;</div><div class="line">		<span class="keyword">return</span> <span class="keyword">new</span> DefaultSearchConditionParser();</div><div class="line">	&#125;</div><div class="line"></div><div class="line">	<span class="meta">@Override</span></div><div class="line">	<span class="function"><span class="keyword">public</span> SortDocsScorer <span class="title">getSortDocsScorer</span><span class="params">(SearchCondition searchCondition)</span> </span>&#123;</div><div class="line">		<span class="keyword">if</span> (searchCondition != <span class="keyword">null</span>) &#123;</div><div class="line">			DefaultDocSimScorer simScorer = <span class="keyword">new</span> DefaultDocSimScorer(searchCondition);</div><div class="line">			pass</div><div class="line">		&#125;</div><div class="line">		<span class="keyword">return</span> <span class="keyword">null</span>;</div><div class="line">	&#125;</div><div class="line"></div><div class="line">	<span class="meta">@Override</span></div><div class="line">	<span class="function"><span class="keyword">public</span> ISortDocsSorter <span class="title">getSortDocsSorter</span><span class="params">(SearchCondition searchCondition)</span> </span>&#123;</div><div class="line">		<span class="keyword">if</span> (searchCondition != <span class="keyword">null</span>) &#123;</div><div class="line">			pass</div><div class="line">		&#125;</div><div class="line">		<span class="keyword">return</span> <span class="keyword">null</span>;</div><div class="line">	&#125;</div><div class="line">	</div><div class="line">	<span class="meta">@Override</span></div><div class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setStrategyName</span><span class="params">(String strategyName)</span> </span>&#123;</div><div class="line">		<span class="keyword">this</span>.strategyName = strategyName;</div><div class="line">	&#125;</div><div class="line">	</div><div class="line">	<span class="meta">@Override</span></div><div class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getStrategyName</span><span class="params">()</span> </span>&#123;</div><div class="line">		<span class="keyword">return</span> strategyName;</div><div class="line">	&#125;</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p><code>NewScoreStrategy</code>和以上区别在于打分环节：
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Override</span></div><div class="line"><span class="function"><span class="keyword">public</span> SortDocsScorer <span class="title">getSortDocsScorer</span><span class="params">(SearchCondition searchCondition)</span> </span>&#123;</div><div class="line">    <span class="keyword">if</span> (searchCondition != <span class="keyword">null</span>) &#123;</div><div class="line">        NewSimScorer simScorer = <span class="keyword">new</span> NewSimScorer(searchCondition);</div><div class="line">        pass</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> <span class="keyword">null</span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<h4>2. 策略的使用</h4>
+<p>        现在策略已经写好了，怎么在实际的搜索过程中决定调用哪一个呢？首先我们一个类<code>ABStrategyContext</code>用于初始化新旧策略并为二者命名：
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ABStrategyContext</span> </span>&#123;</div><div class="line">	<span class="comment">/** 旧策略 */</span></div><div class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> ISearchStrategy oldStrategy;</div><div class="line">	<span class="comment">/** 新策略 */</span></div><div class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> ISearchStrategy newStrategy;</div><div class="line">	</div><div class="line">	<span class="keyword">static</span> &#123;</div><div class="line">		<span class="comment">/** 策略初始化 */</span></div><div class="line">		oldStrategy = <span class="keyword">new</span> DefaultSearchStrategy();</div><div class="line">		oldStrategy.setStrategyName(<span class="string">"defaultStrategy"</span>);</div><div class="line">		</div><div class="line">		newStrategy = <span class="keyword">new</span> NewScoreStrategy ();</div><div class="line">		newStrategy.setStrategyName(<span class="string">"newScoreStrategy "</span>);</div><div class="line">	&#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>        然后构建工厂向消费者稳定提供这2种策略。针对每个用户id，我们为其分配新旧策略中的某一个。
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SearchStrategyFactory</span> </span>&#123;</div><div class="line">	<span class="function"><span class="keyword">private</span> <span class="title">SearchStrategyFactory</span><span class="params">()</span> </span>&#123;</div><div class="line">		</div><div class="line">	&#125;</div><div class="line">	</div><div class="line">    <span class="comment">/** 双重检验锁 */</span></div><div class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> SearchStrategyFactory <span class="title">getInstance</span><span class="params">()</span> </span>&#123;</div><div class="line">		<span class="keyword">if</span> (instance == <span class="keyword">null</span>) &#123;</div><div class="line">			<span class="keyword">synchronized</span> (SearchStrategyFactory.class) &#123;</div><div class="line">				<span class="keyword">if</span> (instance == <span class="keyword">null</span>) &#123;</div><div class="line">					instance = <span class="keyword">new</span> SearchStrategyFactory();</div><div class="line">				&#125;</div><div class="line">			&#125;</div><div class="line">		&#125;</div><div class="line">		<span class="keyword">return</span> instance;</div><div class="line">	&#125;</div><div class="line">	</div><div class="line">	<span class="function"><span class="keyword">public</span> ISearchStrategy <span class="title">buildSearchStrategy</span><span class="params">(UserIdentify uid)</span> </span>&#123;		</div><div class="line">		<span class="comment">/** 用户被分配走新策略 */</span></div><div class="line">		<span class="keyword">if</span> (shouldUseNewStrategy(uid)) &#123;</div><div class="line">			<span class="keyword">return</span> ABStrategyContext.newStrategy;</div><div class="line">		&#125;</div><div class="line">		</div><div class="line">		<span class="comment">/** 用户被分配走旧策略 */</span></div><div class="line">		<span class="keyword">return</span> ABStrategyContext.oldStrategy;</div><div class="line">	&#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>        上述代码描述了针对不同用户id分配新旧策略的方式，该工厂的模式使用了<a href="https://github.com/fancoo/LearnJava/blob/master/%E5%B7%A5%E5%8E%82/SingletonDemo.java#L42" target="_blank" rel="external">双重检验锁(double checked)</a>,能保证该工厂只创建一次且被所有线程高效共享。</p>
+<p>针对某个用户，策略分配方法被调用处代码为：
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">ISearchStrategy strategy = SearchStrategyFactory.getInstance()</div><div class="line">		.buildSearchStrategy(criteria.getUserIdentify());</div><div class="line"><span class="comment">/** 拿到strategy后，为各个环节填充具体策略 */</span></div><div class="line">ISearchConditionParser parser = strategy.getSearchConditionParser();</div><div class="line">SortDocsScorer scorer = strategy.getSortDocsScorer(searchCondition);</div><div class="line">ISortDocsSorter sorter = strategy.getSortDocsSorter(searchCondition);</div></pre></td></tr></table></figure></p>
+<p>        注意到<code>SearchStrategyFactory</code>中中有一个判断<code>shouldUseNewStrategy(uid)</code>方法没有实现，那么现在问题是，我们如何决定某个用户该走哪种策略呢？</p>
+<h4>3. 用户分桶</h4>
+<p>A/B测试的几个要点:</p>
+<ul>
+<li>同一用户在任意时间，看到的应该是同一策略</li>
+<li>确保A和B样本分布与总体分布相似</li>
+<li>置信度保证。如果总体流量就不大，对新策略分配的流量为总流量的1%，实际对比后即使效果有提升，也很难断定新策略更优</li>
+</ul>
+<p>        针对第一点，我们需要构建一个很大的<strong>缓存池</strong>，将产生搜索动作的用户id对应策略分配方案记录下来。针对第二点，我们需要<strong>使分配过程尽量随机</strong>，针对第三点，新策略<strong>流量可以适当设置大一些</strong>。</p>
+<p>分桶代码如下：
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/** 利用LRU策略缓存已经计算过的hash值 */</span></div><div class="line"><span class="keyword">private</span> LRUCache&lt;String, Long&gt; cache = <span class="keyword">new</span> LRUCache&lt;&gt;(<span class="number">500000</span>);</div><div class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">volatile</span> SearchStrategyFactory instance;</div><div class="line"><span class="comment">/** 总流量权重 */</span></div><div class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> WEIGHT = <span class="number">100</span>;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">boolean</span> <span class="title">shouldUseNewStrategy</span><span class="params">(UserIdentify uid)</span> </span>&#123;</div><div class="line">		hashValue = getRandom(getHashValue(userIdentify.getUserId()));</div><div class="line">		</div><div class="line">		<span class="comment">/** 根据新策略流量占百分比[0-100]决定用户分配概率 */</span></div><div class="line">		<span class="keyword">if</span> (hashValue * WEIGHT &lt; DynamicConfig.NEW_STRATEGY_FLOW) &#123;</div><div class="line">			<span class="keyword">return</span> <span class="keyword">true</span>;</div><div class="line">		&#125;</div><div class="line">		<span class="keyword">return</span> <span class="keyword">false</span>;</div><div class="line">	&#125;</div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line"><span class="comment"> * 从cache获取hash值，不存在则计算hash值并存入cache</span></div><div class="line"><span class="comment"> * <span class="doctag">@param</span> key</span></div><div class="line"><span class="comment"> * <span class="doctag">@return</span></span></div><div class="line"><span class="comment"> */</span></div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">long</span> <span class="title">getHashValue</span><span class="params">(String key)</span> </span>&#123;</div><div class="line">	Long hash = cache.get(key);</div><div class="line">	<span class="keyword">if</span> (hash == <span class="keyword">null</span>) &#123;</div><div class="line">		hash = SimpleHashFunction.DJBHash(key);</div><div class="line">		cache.put(key, hash);</div><div class="line">	&#125;</div><div class="line">	<span class="keyword">return</span> hash;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line"><span class="comment"> * 根据seed返回[0,1]之间的随机数</span></div><div class="line"><span class="comment"> * <span class="doctag">@param</span> seed</span></div><div class="line"><span class="comment"> * <span class="doctag">@return</span></span></div><div class="line"><span class="comment"> */</span></div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">double</span> <span class="title">getRandom</span><span class="params">(<span class="keyword">long</span> seed)</span> </span>&#123;</div><div class="line">	<span class="keyword">return</span> <span class="keyword">new</span> Random(seed).nextDouble();</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<h2>三. 后续及总结</h2>
+<p>我们此处仅对策略进行了A/B测试，要配合数据平台日志分析对比工作，还需要在用户搜索日志中增加<code>strategyName</code>字段来作新旧策略区分。</p>
+<p>最后一个问题是，什么样的方案不适合A/B测试？以下是我的个人理解。</p>
+<ul>
+<li><strong>两个版本变量差异过大</strong>。例如多个新策略混合在一起与原始策略做A/B测试，尽管我们能对比新策略组合是“变好了”还是“变差了”，但无法预知具体是哪个新策略产生的增益，后续一旦做策略优化则不知从何做起。</li>
+<li><strong>功能性方案</strong>。例如现在新增“高级搜索”需求，项目完成后我们是不需要对有“高级搜索”和没有“高级搜索”做A/B测试的，原因是它是功能性方案。评估“高级搜索”是否有价值，后续对“高级搜索”流量分析和调研用户反馈即可，这并不是A/B测试的范畴。</li>
+</ul>
+
+ 
+                <!-- Meta -->
+                <div class="post-meta">
+                    <hr>
+                    <br>
+                    <div class="post-tags">
+                        
+                            
+
+<a href="/tags/搜索引擎/">#搜索引擎</a> <a href="/tags/测试/">#测试</a>
+
+
+                        
+                    </div>
+                    <div class="post-date">
+                        2017 年 09 月 09 日
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <!-- Disqus Comments -->
+
+
+            </div>
+        </div>
+    </div>
+</article>
+</section>
+
+    <!-- Scripts -->
+    <!-- jQuery -->
+<script src="//cdn.bootcss.com/jquery/2.2.1/jquery.min.js"></script>
+<!-- Bootstrap -->
+<script src="//cdn.bootcss.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+	console.log('Hexo-theme-hollow designed by zchen9 🙋 © 2015-' + (new Date()).getFullYear());
+</script>
+
+    <!-- Google Analytics -->
+    
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+                    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+                m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+        ga('create', 'UA-98699464-1', 'auto');
+        ga('send', 'pageview');
+
+    </script>
+
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config("");
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="custom_mathjax_source">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
+</body>
+
+</html>

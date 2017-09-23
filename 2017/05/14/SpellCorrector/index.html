@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<!-- Head tag -->
+<head>
+    <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--Description-->
+    
+        <meta name="description" content="Peter Norvig  |  林戈 译">
+    
+
+    <!--Author-->
+    
+        <meta name="author" content="ringo">
+    
+
+    <!-- Title -->
+    
+    <title>如何编写一个拼写纠错器？ | 林戈的小酒馆。</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="//cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Custom Fonts -->
+    <link href="//cdn.bootcss.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='//fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]--><!-- hexo-inject:begin --><!-- hexo-inject:end -->
+</head>
+
+<body  background-color:rgb(255,241,229);>
+
+    <!-- hexo-inject:begin --><!-- hexo-inject:end --><!-- Content -->
+    <section class="article-container">
+<!-- Back Home -->
+<a class="nav-back" href="/">
+    <i class="fa fa-puzzle-piece"></i>
+</a>
+
+<!-- Page Header -->
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1>如何编写一个拼写纠错器？</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Main Content -->
+            <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <p>Peter Norvig  |  林戈 译</p>
+<p>        2007年的某个星期，我的两个朋友(Dean和Bill)分别向我传达了他们对Google的拼写自动纠错能力的赞叹。例如输入&quot;speling&quot;，Google会立即显示&quot;spelling&quot;的检索结果。我原以为这两位才智卓越的工程师、数学家，会对其工作原理有准确的推测，事实上他们没有。后来我意识到，他们怎么会对离自身专业领域如此远的东西认知清晰呢？</p>
+<p>        我觉得他们还有其他人，也许能从拼写纠错原理的解释中获益。工业级的完整拼写纠错相当复杂(详细参见<a href="http://static.googleusercontent.com/media/research.google.com/en/us/pubs/archive/36180.pdf" target="_blank" rel="external">[1]</a>和<a href="http://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=52A3B869596656C9DA285DCE83A0339F?doi=10.1.1.146.4390&amp;rep=rep1&amp;type=pdf" target="_blank" rel="external">[2]</a>)，在横贯大陆的航空旅途中，我用约半页代码写了一个迷你拼写纠错器，其性能已经达到对句子以10词/秒的速度处理，且纠错准确率达到80%~90%。</p>
+<p>代码如下：
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># coding:utf-8</span></div><div class="line"></div><div class="line"><span class="keyword">import</span> re</div><div class="line"><span class="keyword">from</span> collections <span class="keyword">import</span> Counter</div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">words</span><span class="params">(text)</span>:</span></div><div class="line">    <span class="keyword">return</span> re.findall(<span class="string">r'\w+'</span>, text.lower())</div><div class="line"></div><div class="line"><span class="comment"># 统计词频</span></div><div class="line">WORDS = Counter(words(open(<span class="string">'big.txt'</span>).read()))</div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">P</span><span class="params">(word, N=sum<span class="params">(WORDS.values<span class="params">()</span>)</span>)</span>:</span></div><div class="line">    <span class="string">"""词'word'的概率"""</span></div><div class="line">    <span class="keyword">return</span> float(WORDS[word]) / N</div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">correction</span><span class="params">(word)</span>:</span></div><div class="line">    <span class="string">"""最有可能的纠正候选词"""</span></div><div class="line">    <span class="keyword">return</span> max(candidates(word), key=P)</div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">candidates</span><span class="params">(word)</span>:</span></div><div class="line">    <span class="string">"""生成拼写纠正词的候选集合"""</span></div><div class="line">    <span class="keyword">return</span> (known([word]) <span class="keyword">or</span> known(edits1(word)) <span class="keyword">or</span> known(edits2(word)) <span class="keyword">or</span> [word])</div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">known</span><span class="params">(words)</span>:</span></div><div class="line">    <span class="string">"""'words'中出现在WORDS集合的元素子集"""</span></div><div class="line">    <span class="keyword">return</span> set(w <span class="keyword">for</span> w <span class="keyword">in</span> words <span class="keyword">if</span> w <span class="keyword">in</span> WORDS)</div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">edits1</span><span class="params">(word)</span>:</span></div><div class="line">    <span class="string">"""与'word'的编辑距离为1的全部结果"""</span></div><div class="line">    letters    = <span class="string">'abcdefghijklmnopqrstuvwxyz'</span></div><div class="line">    splits     = [(word[:i], word[i:])     <span class="keyword">for</span> i <span class="keyword">in</span> range(len(word) + <span class="number">1</span>)]</div><div class="line">    deletes    = [L + R[<span class="number">1</span>:]                <span class="keyword">for</span> L, R <span class="keyword">in</span> splits <span class="keyword">if</span> R]</div><div class="line">    transposes = [L + R[<span class="number">1</span>] + R[<span class="number">0</span>] + R[<span class="number">2</span>:]  <span class="keyword">for</span> L, R <span class="keyword">in</span> splits <span class="keyword">if</span> len(R) &gt; <span class="number">1</span>]</div><div class="line">    replaces   = [L + c + R[<span class="number">1</span>:]            <span class="keyword">for</span> L, R <span class="keyword">in</span> splits <span class="keyword">for</span> c <span class="keyword">in</span> letters]</div><div class="line">    inserts    = [L + c + R                <span class="keyword">for</span> L, R <span class="keyword">in</span> splits <span class="keyword">for</span> c <span class="keyword">in</span> letters]</div><div class="line">    <span class="keyword">return</span> set(deletes + transposes + replaces + inserts)</div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">edits2</span><span class="params">(word)</span>:</span></div><div class="line">    <span class="string">"""与'word'的编辑距离为2的全部结果"""</span></div><div class="line">    <span class="keyword">return</span> (e2 <span class="keyword">for</span> e1 <span class="keyword">in</span> edits1(word) <span class="keyword">for</span> e2 <span class="keyword">in</span> edits1(e1))</div></pre></td></tr></table></figure></p>
+<p>函数<code>correction(word)</code>返回一个最有可能的纠错还原单词：
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="meta">&gt;&gt;</span>&gt;correction(<span class="string">'speling'</span>)</div><div class="line"><span class="string">'spelling'</span></div><div class="line"><span class="meta">&gt;&gt;</span>&gt;correction(<span class="string">'korrectud'</span>)</div><div class="line"><span class="string">'corrected'</span></div></pre></td></tr></table></figure></p>
+<h1>它是如何工作的：概率理论</h1>
+<p>        调用<code>correction(w)</code>函数将试图选出对于词w最有可能的拼写纠正单词，概率学上我们是无法预知应该选择哪一个的（例如，&quot;lates&quot;应该被纠正为&quot;late&quot;还是&quot;latest&quot;或&quot;latters&quot;...？）。对于给定的原始词w，我们试图在所有可能的候选集合中，找出一个概率最大的修正结果c。</p>
+<p>$$argmax_c \in candidatesP(c|w)$$</p>
+<p>根据<a href="https://en.wikipedia.org/wiki/Bayes'_theorem" target="_blank" rel="external">贝叶斯原理</a>，它等价于：</p>
+<p>$$argmax_c \in candidates \frac{P(c)P(w|c)} {P(w)}$$</p>
+<p>由于对w的每个候选单词c，其$P(w)$均相等，因此剔除后公式如下：</p>
+<p>$$argmax_c \in candidatesP(c)P(w|c)$$</p>
+<p>该式分为4个部分：</p>
+<p>        1.<strong>选择机制</strong>：$argmax$
+        选择候选集中概率最高的单词。</p>
+<p>        2.<strong>候选模型</strong>：$c \in candidates$
+        有哪些候选单词可供考虑。</p>
+<p>        3.<strong>语言模型</strong>：$P(c)$
+        
+c在英语文本中出现的概率。例如：在英语文本出现的单词中，约7%是&quot;the&quot;，那么$P(the)=0.07$</p>
+<p>        4.<strong>错误模型</strong>：$P(w|c)$
+        当作者本意是c结果打成w的概率。例如:概率$P(thew|the)$相当高，而$P(theeexyz|the)$将非常低。</p>
+<p>        一个显而易见的问题是：为什么将简单的表达$P(c|w)$引入两个模型使得其变得更复杂？答案是$P(c|w)$本身就是两个部分的合并，将二者分开能更明确地进行处理。考虑对错误拼写&quot;thew&quot;进行还原，两个候选单词分别是&quot;the&quot;和&quot;thaw&quot;，二者谁的$P(c|w)$更高呢？&quot;thaw&quot;的优点在于它只对原词做了细小的改变：将'e'换成'a'。而另一方面，&quot;the&quot;似乎是一个更常见的词，尽管增加'w'似乎变化更大，可能性更小，也许是打字者在敲'e'后手滑呢？问题的核心在于：为了计算$P(c|w)$我们必须同时考虑c出现的概率，以及从c变成w的可能性。因此显式地分为两部分，思路上会更清晰。</p>
+<h1>它是如何工作的：Python部分</h1>
+<p>该程序的4个部分：</p>
+<p>        1.<strong>选择机制</strong>：在Python中，带<code>key</code>的<code>max()</code>函数即可实现$argmax$的功能。</p>
+<p>        2.<strong>候选模型</strong>：先介绍一个新概念：对一个单词的<strong>简单编辑</strong>是指：删除(移除一个字母)、置换(单词内两字母互换)、替换(单词内一个字母改变)、插入(增加一个字母)。函数<code>edits1(word)</code>返回一个单词的所有简单编辑（译者：称其编辑距离为1）的集合，不考虑编辑后是否是合法单词:
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">edits1</span><span class="params">(word)</span>:</span></div><div class="line">    <span class="string">"""与'word'的编辑距离为1的全部结果"""</span></div><div class="line">    letters    = <span class="string">'abcdefghijklmnopqrstuvwxyz'</span></div><div class="line">    splits     = [(word[:i], word[i:])     <span class="keyword">for</span> i <span class="keyword">in</span> range(len(word) + <span class="number">1</span>)]</div><div class="line">    deletes    = [L + R[<span class="number">1</span>:]                <span class="keyword">for</span> L, R <span class="keyword">in</span> splits <span class="keyword">if</span> R]</div><div class="line">    transposes = [L + R[<span class="number">1</span>] + R[<span class="number">0</span>] + R[<span class="number">2</span>:]  <span class="keyword">for</span> L, R <span class="keyword">in</span> splits <span class="keyword">if</span> len(R) &gt; <span class="number">1</span>]</div><div class="line">    replaces   = [L + c + R[<span class="number">1</span>:]            <span class="keyword">for</span> L, R <span class="keyword">in</span> splits <span class="keyword">for</span> c <span class="keyword">in</span> letters]</div><div class="line">    inserts    = [L + c + R                <span class="keyword">for</span> L, R <span class="keyword">in</span> splits <span class="keyword">for</span> c <span class="keyword">in</span> letters]</div><div class="line">    <span class="keyword">return</span> set(deletes + transposes + replaces + inserts)</div></pre></td></tr></table></figure></p>
+<p>        这个集合可能非常大。一个长度为$n$的单词，有$n$个删除编辑，$n-1$个置换编辑，$26n$个替换编辑，$26(n+1)$的插入编辑，总共$54n+25$个简单编辑（其中存在重复）。例如：
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">&gt;&gt;&gt;len(edits1(<span class="string">'something'</span>))</div><div class="line"><span class="number">442</span></div></pre></td></tr></table></figure></p>
+<p>        然而，如果我们限制单词为<strong>已知</strong>(<code>known</code>，译者：即存在于WORDS字典中的单词)，那么这个单词集合将显著缩小：
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">known</span><span class="params">(words)</span>:</span></div><div class="line">    <span class="string">"""'words'中出现在WORDS集合的元素子集"""</span></div><div class="line">    <span class="keyword">return</span> set(w <span class="keyword">for</span> w <span class="keyword">in</span> words <span class="keyword">if</span> w <span class="keyword">in</span> WORDS)</div><div class="line"></div><div class="line">&gt;&gt;&gt;known(edits1(<span class="string">'something'</span>))</div><div class="line">[<span class="string">'something'</span>, <span class="string">'soothing'</span>]</div></pre></td></tr></table></figure></p>
+<p>        我们也需要考虑经过<strong>二次编辑</strong>得到的单词（译者：“二次编辑”即编辑距离为2，此处作者巧妙运用递归思想，将函数<code>edits1</code>返回集合里的每个元素再次经过<code>edits1</code>处理即可得到），这个集合更大，但仍然只有很少一部分是已知单词：
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">edits2</span><span class="params">(word)</span>:</span></div><div class="line">    <span class="string">"""与'word'的编辑距离为2的全部结果"""</span></div><div class="line">    <span class="keyword">return</span> (e2 <span class="keyword">for</span> e1 <span class="keyword">in</span> edits1(word) <span class="keyword">for</span> e2 <span class="keyword">in</span> edits1(e1))</div><div class="line"></div><div class="line"><span class="meta">&gt;&gt;&gt; </span>len(set(edits2(<span class="string">'something'</span>))</div><div class="line"><span class="number">90902</span></div><div class="line"></div><div class="line"><span class="meta">&gt;&gt;&gt; </span>known(edits2(<span class="string">'something'</span>))</div><div class="line">&#123;<span class="string">'seething'</span>, <span class="string">'smoothing'</span>, <span class="string">'something'</span>, <span class="string">'soothing'</span>&#125;</div><div class="line"></div><div class="line"><span class="meta">&gt;&gt;&gt; </span>known(edits2(<span class="string">'somthing'</span>))</div><div class="line">&#123;<span class="string">'loathing'</span>, <span class="string">'nothing'</span>, <span class="string">'scathing'</span>, <span class="string">'seething'</span>, <span class="string">'smoothing'</span>, <span class="string">'something'</span>, <span class="string">'soothing'</span>, <span class="string">'sorting'</span>&#125;</div></pre></td></tr></table></figure></p>
+<p>        我们称<code>edits2(w)</code>结果中的每个单词与w的距离为2。</p>
+<p>        3.<strong>语言模型</strong>：我们通过统计一个百万级词条的文本<a href="http://norvig.com/big.txt" target="_blank" rel="external">big.txt</a>中各单词出现的频率来估计$P(w)$，它的数据来源于<a href="http://www.gutenberg.org/wiki/Main_Page" target="_blank" rel="external">古腾堡项目</a>中公共领域的书摘，以及<a href="https://en.wiktionary.org/wiki/Wiktionary:Frequency_lists" target="_blank" rel="external">维基词典</a>中频率最高的词汇，还有<a href="http://www.kilgarriff.co.uk/bnc-readme.html" target="_blank" rel="external">英国国家语料库</a>，函数<code>words(text)</code>将文本分割为词组，并统计每个词出现的频率保存在变量<code>WORDS</code>中，<code>P</code>基于该统计评估每个词的概率：
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">words</span><span class="params">(text)</span>:</span></div><div class="line">    <span class="keyword">return</span> re.findall(<span class="string">r'\w+'</span>, text.lower())</div><div class="line"></div><div class="line"></div><div class="line"><span class="comment"># 统计词频</span></div><div class="line">WORDS = Counter(words(open(<span class="string">'big.txt'</span>).read()))</div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">P</span><span class="params">(word, N=sum<span class="params">(WORDS.values<span class="params">()</span>)</span>)</span>:</span></div><div class="line">    <span class="string">"""词'word'的概率"""</span></div><div class="line">    <span class="keyword">return</span> float(WORDS[word]) / N</div></pre></td></tr></table></figure></p>
+<p>        可以看到，去重后有32,192个单词，它们一共出现1,115,504次，&quot;the&quot;是出现频率最高的单词，共出现79,808次(约占7%)，其他词概率低一些。
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div></pre></td><td class="code"><pre><div class="line"><span class="meta">&gt;&gt;&gt; </span>len(WORDS)</div><div class="line"><span class="number">32192</span></div><div class="line"></div><div class="line"><span class="meta">&gt;&gt;&gt; </span>sum(WORDS.values())</div><div class="line"><span class="number">1115504</span></div><div class="line"></div><div class="line"><span class="meta">&gt;&gt;&gt; </span>WORDS.most_common(<span class="number">10</span>)</div><div class="line">[(<span class="string">'the'</span>, <span class="number">79808</span>),</div><div class="line"> (<span class="string">'of'</span>, <span class="number">40024</span>),</div><div class="line"> (<span class="string">'and'</span>, <span class="number">38311</span>),</div><div class="line"> (<span class="string">'to'</span>, <span class="number">28765</span>),</div><div class="line"> (<span class="string">'in'</span>, <span class="number">22020</span>),</div><div class="line"> (<span class="string">'a'</span>, <span class="number">21124</span>),</div><div class="line"> (<span class="string">'that'</span>, <span class="number">12512</span>),</div><div class="line"> (<span class="string">'he'</span>, <span class="number">12401</span>),</div><div class="line"> (<span class="string">'was'</span>, <span class="number">11410</span>),</div><div class="line"> (<span class="string">'it'</span>, <span class="number">10681</span>),</div><div class="line"> (<span class="string">'his'</span>, <span class="number">10034</span>),</div><div class="line"> (<span class="string">'is'</span>, <span class="number">9773</span>),</div><div class="line"> (<span class="string">'with'</span>, <span class="number">9739</span>),</div><div class="line"> (<span class="string">'as'</span>, <span class="number">8064</span>),</div><div class="line"> (<span class="string">'i'</span>, <span class="number">7679</span>),</div><div class="line"> (<span class="string">'had'</span>, <span class="number">7383</span>),</div><div class="line"> (<span class="string">'for'</span>, <span class="number">6938</span>),</div><div class="line"> (<span class="string">'at'</span>, <span class="number">6789</span>),</div><div class="line"> (<span class="string">'by'</span>, <span class="number">6735</span>),</div><div class="line"> (<span class="string">'on'</span>, <span class="number">6639</span>)]</div><div class="line"></div><div class="line"><span class="meta">&gt;&gt;&gt; </span>max(WORDS, key=P)</div><div class="line"><span class="string">'the'</span></div><div class="line"></div><div class="line"><span class="meta">&gt;&gt;&gt; </span>P(<span class="string">'the'</span>)</div><div class="line"><span class="number">0.07154434228832886</span></div><div class="line"></div><div class="line"><span class="meta">&gt;&gt;&gt; </span>P(<span class="string">'outrivaled'</span>)</div><div class="line"><span class="number">8.9645577245801e-07</span></div><div class="line"></div><div class="line"><span class="meta">&gt;&gt;&gt; </span>P(<span class="string">'unmentioned'</span>)</div><div class="line"><span class="number">0.0</span></div></pre></td></tr></table></figure></p>
+<p>        4.<strong>错误模型</strong>：2007年坐在机舱内写这个程序时，我没有拼写错误的相关数据，也没有网络连接(我知道这在今天可能难以想象)。没有数据就不能构建拼写错误模型，因此我采用了一个捷径，定义了这么一个简单的、有缺陷的模型：认定对所有已知词距离为1的编辑必定比距离为2的编辑概率更高，且概率一定低于距离为0的单词（即原单词）。因此函数<code>candidates(word)</code>的优先级如下：</p>
+<p>                1. 原始单词（如果已知），否则到2。</p>
+<p>                2. 所有距离为1的单词，如果为空到3。</p>
+<p>                3. 所有距离为2的单词，如果为空到4。</p>
+<p>                4. 原始单词，即使它不是已知单词。</p>
+<h1>效果评估</h1>
+<p>        现在我们看看程序效果如何。下飞机后，我从牛津文本档案库下载了Roger Mitton的<a href="http://ota.ahds.ac.uk/texts/0643.html" target="_blank" rel="external">伯克贝克拼写错误语料库</a>，从中抽取了两个错误修正测试集，前者在开发中作为参考，调整程序以适应其结果；后者用于最终测试，因此我不能偷看，也无法在评估时修改程序。取两个集合分别用于开发和测试是个好习惯，它让我不至于自欺欺人地调整程序以适应结果，然后觉得程序效果有提升。我还写了单元测试：
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">unit_tests</span><span class="params">()</span>:</span></div><div class="line">    <span class="string">"""开发的单元测试"""</span></div><div class="line">    <span class="keyword">assert</span> correction(<span class="string">'speling'</span>) == <span class="string">'spelling'</span>              <span class="comment"># insert</span></div><div class="line">    <span class="keyword">assert</span> correction(<span class="string">'korrectud'</span>) == <span class="string">'corrected'</span>           <span class="comment"># replace 2</span></div><div class="line">    <span class="keyword">assert</span> correction(<span class="string">'bycycle'</span>) == <span class="string">'bicycle'</span>               <span class="comment"># replace</span></div><div class="line">    <span class="keyword">assert</span> correction(<span class="string">'inconvient'</span>) == <span class="string">'inconvenient'</span>       <span class="comment"># insert 2</span></div><div class="line">    <span class="keyword">assert</span> correction(<span class="string">'arrainged'</span>) == <span class="string">'arranged'</span>            <span class="comment"># delete</span></div><div class="line">    <span class="keyword">assert</span> correction(<span class="string">'peotry'</span>) ==<span class="string">'poetry'</span>                  <span class="comment"># transpose</span></div><div class="line">    <span class="keyword">assert</span> correction(<span class="string">'peotryy'</span>) ==<span class="string">'poetry'</span>                 <span class="comment"># transpose + delete</span></div><div class="line">    <span class="keyword">assert</span> correction(<span class="string">'word'</span>) == <span class="string">'word'</span>                     <span class="comment"># known</span></div><div class="line">    <span class="keyword">assert</span> correction(<span class="string">'quintessential'</span>) == <span class="string">'quintessential'</span> <span class="comment"># unknown</span></div><div class="line">    <span class="keyword">assert</span> words(<span class="string">'This is a TEST.'</span>) == [<span class="string">'this'</span>, <span class="string">'is'</span>, <span class="string">'a'</span>, <span class="string">'test'</span>]</div><div class="line">    <span class="keyword">assert</span> Counter(words(<span class="string">'This is a test. 123; A TEST this is.'</span>)) == (</div><div class="line">           Counter(&#123;<span class="string">'123'</span>: <span class="number">1</span>, <span class="string">'a'</span>: <span class="number">2</span>, <span class="string">'is'</span>: <span class="number">2</span>, <span class="string">'test'</span>: <span class="number">2</span>, <span class="string">'this'</span>: <span class="number">2</span>&#125;))</div><div class="line">    <span class="keyword">assert</span> len(WORDS) == <span class="number">32192</span></div><div class="line">    <span class="keyword">assert</span> sum(WORDS.values()) == <span class="number">1115504</span></div><div class="line">    <span class="keyword">assert</span> WORDS.most_common(<span class="number">10</span>) == [</div><div class="line">     (<span class="string">'the'</span>, <span class="number">79808</span>),</div><div class="line">     (<span class="string">'of'</span>, <span class="number">40024</span>),</div><div class="line">     (<span class="string">'and'</span>, <span class="number">38311</span>),</div><div class="line">     (<span class="string">'to'</span>, <span class="number">28765</span>),</div><div class="line">     (<span class="string">'in'</span>, <span class="number">22020</span>),</div><div class="line">     (<span class="string">'a'</span>, <span class="number">21124</span>),</div><div class="line">     (<span class="string">'that'</span>, <span class="number">12512</span>),</div><div class="line">     (<span class="string">'he'</span>, <span class="number">12401</span>),</div><div class="line">     (<span class="string">'was'</span>, <span class="number">11410</span>),</div><div class="line">     (<span class="string">'it'</span>, <span class="number">10681</span>)]</div><div class="line">    <span class="keyword">assert</span> WORDS[<span class="string">'the'</span>] == <span class="number">79808</span></div><div class="line">    <span class="keyword">assert</span> P(<span class="string">'quintessential'</span>) == <span class="number">0</span></div><div class="line">    <span class="keyword">assert</span> <span class="number">0.07</span> &lt; P(<span class="string">'the'</span>) &lt; <span class="number">0.08</span></div><div class="line">    <span class="keyword">return</span> <span class="string">'unit_tests pass'</span></div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">spelltest</span><span class="params">(tests, verbose=False)</span>:</span></div><div class="line">    <span class="string">"""对测试集合1中的(right, wrong)词条，运行correction(wrong)并统计结果的正确性"""</span></div><div class="line">    <span class="keyword">import</span> time</div><div class="line">    start = time.clock()</div><div class="line">    good, unknown = <span class="number">0</span>, <span class="number">0</span></div><div class="line">    n = len(tests)</div><div class="line">    <span class="keyword">for</span> right, wrong <span class="keyword">in</span> tests:</div><div class="line">        w = correction(wrong)</div><div class="line">        good += (w == right)</div><div class="line">        <span class="keyword">if</span> w != right:</div><div class="line">            unknown += (right <span class="keyword">not</span> <span class="keyword">in</span> WORDS)</div><div class="line">            <span class="keyword">if</span> verbose:</div><div class="line">                print(<span class="string">'correction(&#123;&#125;) =&gt; &#123;&#125; (&#123;&#125;); expected &#123;&#125; (&#123;&#125;)'</span></div><div class="line">                      .format(wrong, w, WORDS[w], right, WORDS[right]))</div><div class="line">    dt = time.clock() - start</div><div class="line">    print(<span class="string">'&#123;:.0%&#125; of &#123;&#125; correct (&#123;:.0%&#125; unknown) at &#123;:.0f&#125; words per second '</span></div><div class="line">          .format(good / n, n, unknown / n, n / dt))</div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">Testset</span><span class="params">(lines)</span>:</span></div><div class="line">    <span class="string">"""对测试集合2中的错误样本，将'wrong1 wrong2'修正为[('right', 'wrong1'), ('right', 'wrong2')]"""</span></div><div class="line">    <span class="keyword">return</span> [(right, wrong)</div><div class="line">            <span class="keyword">for</span> (right, wrongs) <span class="keyword">in</span> (line.split(<span class="string">':'</span>) <span class="keyword">for</span> line <span class="keyword">in</span> lines)</div><div class="line">            <span class="keyword">for</span> wrong <span class="keyword">in</span> wrongs.split()]</div><div class="line"></div><div class="line">print(unit_tests())</div><div class="line">spelltest(Testset(open(<span class="string">'spell-testset1.txt'</span>)))  <span class="comment"># Development set</span></div><div class="line">spelltest(Testset(open(<span class="string">'spell-testset2.txt'</span>)))  <span class="comment"># Final test set</span></div></pre></td></tr></table></figure></p>
+<p>结果如下：
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">unit_tests <span class="keyword">pass</span></div><div class="line"><span class="number">75</span>% of <span class="number">270</span> correct at <span class="number">41</span> words per second</div><div class="line"><span class="number">68</span>% of <span class="number">400</span> correct at <span class="number">35</span> words per second</div><div class="line"><span class="keyword">None</span></div></pre></td></tr></table></figure></p>
+<p>        可以看到，开发部分的集合准确率达到了74%（处理速度是41词/秒），而在最终的测试集中准确率是68%（31词/秒）。结论是：我达到了简洁，开发时间短，运行速度快这3个目的，但准确性不太高。也许是我的测试集太复杂，又或是模型太简单因故而不能达到80%~90%的准确率。</p>
+<h1>后续工作</h1>
+<p>        考虑一下我们如何做的更好。</p>
+<p>        <strong>1. 语言模型</strong>$P(c)$。在语言模型中我们能区分两种类型的错误（译者：known词和unknown词，前者2次编辑词集合存在元素$\in$WORDS，后者不存在），更为严重的是unknow词，程序会直接返回该词的原始结果。在开发集合中，有15个unknown词，约占5%，而测试集中有43个（11%）。以下我们给出部分<code>spelltest</code>的运行结果：
+<figure class="highlight"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">correction('transportibility') =&gt; 'transportibility'(0); expected 'transportability'(0)</div><div class="line">correction('addresable') =&gt; 'addresable' (0); expected 'addressable' (0)</div><div class="line">correction('auxillary') =&gt; 'axillary' (31); expected 'auxiliary' (0)</div></pre></td></tr></table></figure></p>
+<p>        我将期望输出与实际输出分别打印出来，计数'0'表示目标词汇不在词库字典内，因此我们无法纠错。如果能收集更多数据，包括使用一些语法(例如在单词后加入&quot;ility&quot;或是&quot;able&quot;)，我们能构建一个更好的语言模型。</p>
+<p>        处理unknown词汇的另一种办法是，允许<code>correction</code>结果中出现我们没见过的词汇。例如，如果输入是&quot;electroencephalographicallz&quot;，较好的一种修正是将末尾的'z'替换成'y'，尽管&quot;electroencephalographically&quot;并不在词库里，我们可以基于词成分，例如发音或后缀来实现此效果。一种更简单的方法是基于字母序列：统计常见2、3、4个字母序列。</p>
+<p>        <strong>2. 错误模型</strong>$P(w|c)$。目前为止我们的错误模型相当简陋：认定编辑距离越短错误越小。这导致了许多问题，许多例子中应该返回编辑距离为2的结果而不是距离为1。如下所示：
+<figure class="highlight"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">correction('reciet') =&gt; 'recite' (5); expected 'receipt' (14)</div><div class="line">correction('adres') =&gt; 'acres' (37); expected 'address' (77)</div><div class="line">correction('rember') =&gt; 'member' (51); expected 'remember' (162)</div><div class="line">correction('juse') =&gt; 'just' (768); expected 'juice' (6)</div><div class="line">correction('accesing') =&gt; 'acceding' (2); expected 'assessing' (1)</div></pre></td></tr></table></figure></p>
+<p>        为何&quot;adres&quot;应该被修正为&quot;address&quot;而非&quot;acres&quot;呢？直觉是从'd'到&quot;dd&quot;和从's'到&quot;ss&quot;的二次编辑很常见，应该拥有更高的概率，而从'd'到'c'的简单编辑概率很低。</p>
+<p>        显然我们可以根据编辑开销来改进模型：根据直觉将叠词的编辑开销降低，或是改变元音字母。一种更好的做法是收集数据：收集拼写错误的语料，并对照正确单词统计增删、替换操作的概率。想做好这些需要大量数据：例如给定窗口大小为2的两个单词，如果你想得到两者间的全部修正概率，其可能的转换有$26^6$种，超过3000万词汇。因此如果你想获取每个单词的几个转换实例，大约需10亿条修正数据，如要保证质量，大概需要100亿之多。</p>
+<p>        注意到语言模型和错误模型存在联系：目前如此简陋（编辑距离为1的词必定优于编辑距离为2的词）的错误模型给语言模型造成阻碍：我们不愿将相对冷僻的词放入模型内，因为如果这类词恰好与输入单词的编辑距离为1，它将被选中，即使存在一个编辑距离为2但很常见的词。好的错误模型在添加冷僻词时更富有侵略性，以下例子展示了冷僻词出现在字典里的危害：
+<figure class="highlight"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">correction('wonted') =&gt; 'wonted' (2); expected 'wanted' (214)</div><div class="line">correction('planed') =&gt; 'planed' (2); expected 'planned' (16)</div><div class="line">correction('forth') =&gt; 'forth' (83); expected 'fourth' (79)</div><div class="line">correction('et') =&gt; 'et' (20); expected 'set' (325)</div></pre></td></tr></table></figure></p>
+<p>        <strong>3. 修正集合</strong>$argmax_c$。本程序会枚举某单词所有编剧距离2以内的修正，在开发集的270个修正词中只有3个编辑距离超过2，然而在测试集合中，23/400个编辑距离超过2，它们是：
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div></pre></td><td class="code"><pre><div class="line">purple perpul</div><div class="line">curtains courtens</div><div class="line">minutes muinets</div><div class="line">successful sucssuful</div><div class="line">hierarchy heiarky</div><div class="line">profession preffeson</div><div class="line">weighted wagted</div><div class="line">inefficient ineffiect</div><div class="line">availability avaiblity</div><div class="line">thermawear thermawhere</div><div class="line">nature natior</div><div class="line">dissension desention</div><div class="line">unnecessarily unessasarily</div><div class="line">disappointing dissapoiting</div><div class="line">acquaintances aquantences</div><div class="line">thoughts thorts</div><div class="line">criticism citisum</div><div class="line">immediately imidatly</div><div class="line">necessary necasery</div><div class="line">necessary nessasary</div><div class="line">necessary nessisary</div><div class="line">unnecessary unessessay</div><div class="line">night nite</div><div class="line">minutes muiuets</div><div class="line">assessing accesing</div><div class="line">necessitates nessisitates</div></pre></td></tr></table></figure></p>
+<p>        我们可以考虑扩展一下模型，允许一些编辑距离为3的词进入修正集合。例如，允许元音之后插入元音，或元音间的替换，又或'c'和's'之间的替换。</p>
+<p>        <strong>4. 第四种（也可能是最佳）改进方案为</strong>：将<code>correction</code>的文本窗口调大一些。当前的<code>correction</code>只检测单个词，然而在许多情形下仅靠一个单词很难做出判决。而假若这个单词恰好出现在字典里，这种纠错手段就更显无力。例如：
+<figure class="highlight"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">correction('where') =&gt; 'where' (123); expected 'were' (452)</div><div class="line">correction('latter') =&gt; 'latter' (11); expected 'later' (116)</div><div class="line">correction('advice') =&gt; 'advice' (64); expected 'advise' (20)</div></pre></td></tr></table></figure></p>
+<p>        我们几乎不可能知道<code>correction('where')</code>在某个语句内应该返回&quot;were&quot;，而在另一句返回&quot;where&quot;。但如果输入语句是<code>correction('They where going')</code>，我们很容易判定此处&quot;where&quot;应该被纠错为&quot;were&quot;。</p>
+<p>        要构建一个能同时处理词和上下文的模型需要大量数据。幸运的是，Google已经公开了最长5个词的全部序列<a href="https://research.googleblog.com/2006/08/all-our-n-gram-are-belong-to-you.html" target="_blank" rel="external">词库</a>，该数据源于上千亿的语料集。我相信要使拼写纠错准确率达到90%，必须依赖上下文辅助决策，关于这个以后我们再讨论。</p>
+<p>        我们也可以决定以哪种方言进行训练。以下纠正时产生的错误均源于英式和美式拼写间的差异：
+<figure class="highlight"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">correction('humor') =&gt; 'humor' (17); expected 'humour' (5)</div><div class="line">correction('oranisation') =&gt; 'organisation' (8); expected 'organization' (43)</div><div class="line">correction('oranised') =&gt; 'organised' (11); expected 'organized' (70)</div></pre></td></tr></table></figure></p>
+<p>        5. 最后，我们可以<strong>改进实现方法</strong>，使程序在不改变结果的情况下运行速度更快。例如：将实现该程序的语言从解释型语言换成编译型语言；缓存纠错结果从而不必重复纠错。一句话：在进行任何速度优化前，先大致看看时间消耗情况再决定优化方向。</p>
+<h1>阅读材料</h1>
+<ul>
+<li>Roger Mitton关于拼写检测的<a href="http://www.dcs.bbk.ac.uk/~roger/spellchecking.html" target="_blank" rel="external">调研文章</a></li>
+<li>Jurafsky 和 Martin的教材中<a href="http://www.cs.colorado.edu/~martin/slp.html" target="_blank" rel="external">拼写检测部分</a>。</li>
+<li>Manning 和 Schutze 在他们编撰的 <a href="http://nlp.stanford.edu/fsnlp/" target="_blank" rel="external">Foundations of StatisticalNatural Language Processing</a> 中很好的讲述了统计语言模型, 但似乎没有(至少目录中没有)提及拼写检查。</li>
+<li><a href="http://aspell.net/" target="_blank" rel="external">aspell</a> 项目中有大量有趣的材料，其中的一些<a href="http://aspell.net/test/" target="_blank" rel="external">测试数据</a>似乎比我使用的更好。</li>
+<li><a href="http://alias-i.com/lingpipe" target="_blank" rel="external">LinPipe</a> 项目有一个<a href="http://alias-i.com/lingpipe/demos/tutorial/querySpellChecker/read-me.html" target="_blank" rel="external">拼写检测教程</a></li>
+</ul>
+<p>原文地址：<a href="http://norvig.com/spell-correct.html" target="_blank" rel="external">How to Write a Spelling Corrector?</a></p>
+
+ 
+                <!-- Meta -->
+                <div class="post-meta">
+                    <hr>
+                    <br>
+                    <div class="post-tags">
+                        
+                            
+
+<a href="/tags/机器学习/">#机器学习</a> <a href="/tags/Python/">#Python</a>
+
+
+                        
+                    </div>
+                    <div class="post-date">
+                        2017 年 05 月 14 日
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <!-- Disqus Comments -->
+
+
+            </div>
+        </div>
+    </div>
+</article>
+</section>
+
+    <!-- Scripts -->
+    <!-- jQuery -->
+<script src="//cdn.bootcss.com/jquery/2.2.1/jquery.min.js"></script>
+<!-- Bootstrap -->
+<script src="//cdn.bootcss.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+	console.log('Hexo-theme-hollow designed by zchen9 🙋 © 2015-' + (new Date()).getFullYear());
+</script>
+
+    <!-- Google Analytics -->
+    
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+                    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+                m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+        ga('create', 'UA-98699464-1', 'auto');
+        ga('send', 'pageview');
+
+    </script>
+
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config("");
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="custom_mathjax_source">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
+</body>
+
+</html>

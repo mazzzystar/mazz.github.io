@@ -68,11 +68,11 @@
         <div class="row">
             <!-- Post Main Content -->
             <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <p>今天结束了Ng的Deep Learning系列课程Class1:<em>Neural Networks and Deep Learning</em>。习题中公式部分Ng仅给了结论，此处将给出完整推导。此外，在Week3练习中我对Logistic Regression和Neural Network之间的联系和区别比较模糊，本文也会将二者联系起来稍作总结。</p>
+                <p>        今天结束了Ng的Deep Learning系列课程Class1:<em>Neural Networks and Deep Learning</em>。习题中公式部分Ng仅给了结论，此处将给出完整推导。此外，在Week3练习中我对Logistic Regression和Neural Network之间的联系和区别比较模糊，本文也会将二者联系起来稍作总结。</p>
 <h1>1.从Linear Regression说起</h1>
-<p>在介绍逻辑回归(Logistic Regression)之前，我想简要介绍一下线性回归(Linear Regression)方法。线性回归不仅能解决线性分类问题，多元线性回归也能解决非线性分类问题。它产生的预测是连续的，<strong>这个特性使它适合对连续变量进行预测</strong>。针对一组连续或离散的序列对{$(x_0, y_0), (x_1, y_1), ...(x_n, y_n)$}, 假设其图像如下：</p>
+<p>        在介绍逻辑回归(Logistic Regression)之前，我想简要介绍一下线性回归(Linear Regression)方法。线性回归不仅能解决线性分类问题，多元线性回归也能解决非线性分类问题。它产生的预测是连续的，<strong>这个特性使它适合对连续变量进行预测</strong>。针对一组连续或离散的序列对{$(x_0, y_0), (x_1, y_1), ...(x_n, y_n)$}, 假设其图像如下：</p>
 <p><img src="http://www.stat.yale.edu/Courses/1997-98/101/multregr.gif" alt="Linear Classification"></p>
-<p>此外假设其feature个数为$m$(例如一个$x$样本中就包含很多维度的数据)， 即使用$m$元线性参数拟合该数据，则针对某一个样本$(x_i, y_i)$，假设函数(hypothesis function)$h_\theta(x_i)$为：</p>
+<p>        此外假设其feature个数为$m$(例如一个$x$样本中就包含很多维度的数据)， 即使用$m$元线性参数拟合该数据，则针对某一个样本$(x_i, y_i)$，假设函数(hypothesis function)$h_\theta(x_i)$为：</p>
 <p>$$h_\theta(x_i) = \sum_{j=1}^{m}\theta_j {x^{[j]}_i}$$</p>
 <p>接着我们使用平方损失函数(loss function)进行求预测和实际的平方差：</p>
 <p>$$L(\theta) = \frac{1}{2m}\sum_{j=1}^{m}(h_{\theta}(x^i) - y^i)^2$$</p>
@@ -84,7 +84,7 @@
 <li>极大似然估计(maximum likelihood estimation)等价于最小化平方损失(minimization of MSE)的前提是，样本噪声符合高斯分布。因此如果数据噪声不符合高斯分布，仍要按极大似然估计思想进行损失计算，可能要改为计算交叉熵(cross-entropy)。</li>
 </ul>
 <h1>2. Logistic Regression</h1>
-<p>此处搬运Andrew Ng课程<a href="https://www.coursera.org/learn/neural-networks-deep-learning/" target="_blank" rel="external">Neural Networks and Deep Learning</a>作业(Week2, Assignment2)中的一些表述：
+<p>        此处搬运Andrew Ng课程<a href="https://www.coursera.org/learn/neural-networks-deep-learning/" target="_blank" rel="external">Neural Networks and Deep Learning</a>作业(Week2, Assignment2)中的一些表述：
 我们将一张64x64的图像分为RGB三层，将这64x64x3共12288个像素(其值在$[0, 255]$之间)整合为1列，因此按照Linear Regression中的说法，$x$的“参数有12288元”，如下图：</p>
 <p><img src="https://hub.coursera-notebooks.org/user/urcovrhtnaqhimixnfkchy/notebooks/Week%202/Logistic%20Regression%20as%20a%20Neural%20Network/images/LogReg_kiank.png" alt=""></p>
 <p>我们首先将这：</p>
@@ -96,10 +96,11 @@
 <p><img src="http://ronny.rest/media/blog/2017/2017_08_12_logistic_regression_derivative/logistic_regression_graph.png" alt="lr"></p>
 <p>逻辑回归的相比线性回归，差异从公式(2)(3)中已初见端倪：</p>
 <p>首先，<strong>增加了激活函数(activation function)。</strong></p>
-<p>这是很关键的一步，它相当于对原有的线性加权函数做了一个非线性变换。我们不禁要问，非线性变换的意义在哪？</p>
+<p>        这是很关键的一步，它相当于对原有的线性加权函数做了一个非线性变换。我们不禁要问，非线性变换的意义在哪？</p>
 <p>为了更清晰地解释非线性变换的意义，此处将激活函数简化为ReLU(Rectified Linear Unit), 其函数特性如下：</p>
-<p>图像如下：
-<img src="https://relinklabs.com/imager/uploads/images/1107/Screen-Shot-2017-06-23-at-1.27.11-PM_d4e4e04a52bfbdbeab5ba4d2cf1d1390.png" alt=""></p>
+<p>图像如下：</p>
+<p><img src="https://relinklabs.com/imager/uploads/images/1107/Screen-Shot-2017-06-23-at-1.27.11-PM_d4e4e04a52bfbdbeab5ba4d2cf1d1390.png" alt="t"></p>
+<p>其次，预测二值</p>
 <p>我们简要对线性回归和逻辑回归做一下对比：</p>
 <table>
 <thead>

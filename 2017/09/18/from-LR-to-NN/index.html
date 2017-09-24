@@ -9,7 +9,7 @@
 
     <!--Description-->
     
-        <meta name="description" content="今天结束了Ng的Deep Learning系列课程Class1:Neural Networks and Deep Learning。习题中公式部分Ng仅给了结论，此处将给出完整推导。此外，在Week3练习中我对Logistic Regression和Neural Network之间的联系和区别比较模糊，本文也会将二者联系起来稍作总结。">
+        <meta name="description" content="今天结束了Andrew Ng的Deep Learning系列课程Class1:Neural Networks and Deep Learning。习题中公式部分Ng仅给了结论，此处将给出完整推导。此外，在Week3练习中我对Logistic Regression和Neural Network之间的联系和区别比较模糊，本文也会将二者联系起来稍作总结。">
     
 
     <!--Author-->
@@ -68,75 +68,115 @@
         <div class="row">
             <!-- Post Main Content -->
             <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <p>        今天结束了Ng的Deep Learning系列课程Class1:<em>Neural Networks and Deep Learning</em>。习题中公式部分Ng仅给了结论，此处将给出完整推导。此外，在Week3练习中我对Logistic Regression和Neural Network之间的联系和区别比较模糊，本文也会将二者联系起来稍作总结。</p>
+                <p>        今天结束了Andrew Ng的Deep Learning系列课程Class1:<em>Neural Networks and Deep Learning</em>。习题中公式部分Ng仅给了结论，此处将给出完整推导。此外，在Week3练习中我对Logistic Regression和Neural Network之间的联系和区别比较模糊，本文也会将二者联系起来稍作总结。</p>
 <h1>1.从Linear Regression说起</h1>
-<p>        在介绍逻辑回归(Logistic Regression)之前，我想简要介绍一下线性回归(Linear Regression)方法。线性回归不仅能解决线性分类问题，多元线性回归也能解决非线性分类问题。它产生的预测是连续的，<strong>这个特性使它适合对连续变量进行预测</strong>。针对一组连续或离散的序列对{$(x_0, y_0), (x_1, y_1), ...(x_n, y_n)$}, 假设其图像如下：</p>
+<p>        在介绍逻辑回归(Logistic Regression)之前，我想回顾一下线性回归(Linear Regression)方法。线性回归不仅能解决线性分类问题，多元线性回归也能解决非线性分类问题。它产生的预测是连续的，<strong>这个特性使它适合对连续变量进行预测</strong>。针对一组连续或离散的序列对{$(x_0, y_0), (x_1, y_1), ...(x_n, y_n)$}, 例如图像如下：</p>
 <p><img src="http://www.stat.yale.edu/Courses/1997-98/101/multregr.gif" alt="Linear Classification"></p>
-<p>        此外假设其feature个数为$m$(例如一个$x$样本中就包含很多维度的数据)， 即使用$m$元线性参数拟合该数据，则针对某一个样本$(x_i, y_i)$，假设函数(hypothesis function)$h_\theta(x_i)$为：</p>
+<p>        假设其feature个数为$m$(某样本$x$中就包含很多维度的数据)， 即使用$m$元线性参数拟合该数据，则针对某一个样本$(x_i, y_i)$，假设函数(hypothesis function)$h_\theta(x_i)$为：</p>
 <p>$$h_\theta(x_i) = \sum_{j=1}^{m}\theta_j {x^{[j]}_i}$$</p>
-<p>接着我们使用平方损失函数(loss function)进行求预测和实际的平方差：</p>
+<p>        接着我们使用平方损失函数(loss function)进行求预测和实际的平方差：</p>
 <p>$$L(\theta) = \frac{1}{2m}\sum_{j=1}^{m}(h_{\theta}(x^i) - y^i)^2$$</p>
-<p>再使用gradient descent, 对这$m$元参数$\theta$:</p>
+<p>        再使用gradient descent, 对这$m$元参数$\theta$:</p>
 <p>$$\theta := \theta - \alpha \cdot \frac{1}{m} \cdot x^T \cdot (x \cdot \theta - y)$$</p>
-<p>平方损失函数是凸函数， 因此后续工作就是不断迭代直至收敛，这其中要注意2个问题：</p>
+<p>平方损失函数是凸函数， 因此后续工作就是不断迭代直至收敛，其中要注意2个问题：</p>
 <ul>
-<li>考虑到$m$越大训练误差越小，最终可能导致过拟合，因此需要加一些正则项。</li>
-<li>极大似然估计(maximum likelihood estimation)等价于最小化平方损失(minimization of MSE)的前提是，样本噪声符合高斯分布。因此如果数据噪声不符合高斯分布，仍要按极大似然估计思想进行损失计算，可能要改为计算交叉熵(cross-entropy)。</li>
+<li>考虑到$m$越大训练误差越小，最终可能导致过拟合，因此要加正则项。</li>
+<li>极大似然估计(maximum likelihood estimation)等价于最小化平方损失(minimization of MSE)的前提是：样本噪声符合高斯分布。若数据噪声不符合高斯分布，仍要按极大似然估计思想进行损失计算，可能要改为计算交叉熵(cross-entropy)。</li>
 </ul>
 <h1>2. Logistic Regression</h1>
-<p>        此处搬运Andrew Ng课程<a href="https://www.coursera.org/learn/neural-networks-deep-learning/" target="_blank" rel="external">Neural Networks and Deep Learning</a>作业(Week2, Assignment2)中的一些表述：
-我们将一张64x64的图像分为RGB三层，将这64x64x3共12288个像素(其值在$[0, 255]$之间)整合为1列，因此按照Linear Regression中的说法，$x$的“参数有12288元”，如下图：</p>
-<p><img src="https://hub.coursera-notebooks.org/user/urcovrhtnaqhimixnfkchy/notebooks/Week%202/Logistic%20Regression%20as%20a%20Neural%20Network/images/LogReg_kiank.png" alt=""></p>
-<p>我们首先将这：</p>
+<p>        此处搬运Andrew Ng课程<a href="https://www.coursera.org/learn/neural-networks-deep-learning/" target="_blank" rel="external">Neural Networks and Deep Learning</a>作业(Week2, Assignment2)中的实例：
+我们将一张$64 \times 64$的图像分为RGB三层，将这$64 \times 64 \times 3$共12288个像素(其值在$[0, 255]$之间)整合为1列，因此按照Linear Regression中的说法，$x$的“参数有12288元”，如下图：</p>
+<p><img src="ng-lr.png" alt=""></p>
+<p>        计算公式如下：</p>
 <p>$$z^{(i)} = w^T x^{(i)} + b \tag{1}$$</p>
 <p>$$\hat{y}^{(i)} = a^{(i)} = sigmoid(z^{(i)})\tag{2}$$</p>
 <p>$$ \mathcal{L}(a^{(i)}, y^{(i)}) =  - y^{(i)}  \log(a^{(i)}) - (1-y^{(i)} )  \log(1-a^{(i)})\tag{3}$$</p>
 <p>$$ J = \frac{1}{m} \sum_{i=1}^m \mathcal{L}(a^{(i)}, y^{(i)})\tag{4}$$</p>
-<p>用一张<a href="http://ronny.rest/blog/post_2017_08_12_logistic_regression_derivative/" target="_blank" rel="external">图</a>描述此过程：</p>
+<p>        用一张<a href="http://ronny.rest/blog/post_2017_08_12_logistic_regression_derivative/" target="_blank" rel="external">图</a>描述此过程：</p>
 <p><img src="http://ronny.rest/media/blog/2017/2017_08_12_logistic_regression_derivative/logistic_regression_graph.png" alt="lr"></p>
-<p>逻辑回归的相比线性回归，差异从公式(2)(3)中已初见端倪：</p>
-<p>首先，<strong>增加了激活函数(activation function)。</strong></p>
-<p>        这是很关键的一步，它相当于对原有的线性加权函数做了一个非线性变换。我们不禁要问，非线性变换的意义在哪？</p>
-<p>为了更清晰地解释非线性变换的意义，此处将激活函数简化为ReLU(Rectified Linear Unit), 其函数特性如下：</p>
-<p>图像如下：</p>
-<p><img src="https://relinklabs.com/imager/uploads/images/1107/Screen-Shot-2017-06-23-at-1.27.11-PM_d4e4e04a52bfbdbeab5ba4d2cf1d1390.png" alt="t"></p>
-<p>其次，预测二值</p>
-<p>我们简要对线性回归和逻辑回归做一下对比：</p>
-<table>
-<thead>
-<tr>
-<th>item</th>
-<th style="text-align:center">Linear Regression</th>
-<th style="text-align:center">Logistic Regression</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>hypothesis function</td>
-<td style="text-align:center">wx</td>
-<td style="text-align:center">same</td>
-</tr>
-<tr>
-<td>activation function</td>
-<td style="text-align:center">sigmoid</td>
-<td style="text-align:center">-</td>
-</tr>
-<tr>
-<td>loss function</td>
-<td style="text-align:center">log</td>
-<td style="text-align:center">square</td>
-</tr>
-<tr>
-<td>predict</td>
-<td style="text-align:center">0/1</td>
-<td style="text-align:center">actual value</td>
-</tr>
-</tbody>
-</table>
-<h1>3. Shallow Neural Network</h1>
-<p>此处介绍一个2隐含层(也就是3-layer)神经网络，稍后我们将看到它和Logistic Regression的区别。</p>
-<p><img src="http://cs231n.github.io/assets/nn1/neural_net2.jpeg" alt="neural network"></p>
-<h1>4. 参考材料</h1>
+<p>逻辑回归相比线性回归，差异从公式(2)(3)中已初见端倪：</p>
+<p>        <strong>1. 损失函数的计算从MSE变为cross-entropy。</strong></p>
+<p>        <strong>2. 增加了激活函数(activation function)。</strong></p>
+<p>        这是很关键的一步，它相当于对原有的线性加权函数做了一个非线性变换。那么非线性变换的意义在哪？</p>
+<p>        为了更清晰地解释非线性变换的意义，此处将激活函数简化为ReLU(Rectified Linear Unit) function, 其函数形式：</p>
+<p>$$f(x)=max(0, x)$$</p>
+<p>        图像如下：</p>
+<p><img src="https://relinklabs.com/imager/uploads/images/1107/Screen-Shot-2017-06-23-at-1.27.11-PM_d4e4e04a52bfbdbeab5ba4d2cf1d1390.png" alt="ReLU"></p>
+<p>        图中橘黄色的直线是对ReLU的改进，称为leaky ReLU。</p>
+<p>        假设现在我们要使用线性模型构造与或门(XOR)，即对如下几组输入：
+$$x_1 = [0, 0] \qquad x_2 = [0, 1] \qquad x_3=[1, 0] \qquad x_4=[1, 1] $$</p>
+<p>        希望$y$值分别是:
+$$[0, 1, 1, 0]$$</p>
+<p>        按照线性函数的平方损失／线性模型进行训练，其最终参数$w$为0，$b$为0.5，即对任何输入$x$，其预测结果均为$\frac{1}{2}$，这显然不符合预期。<strong>线性模型的一大问题在于它只对输入特征进行线性加权，无法学习“两个特征之间的交互作用”</strong>。我们将输入数据展示出来：
+<img src="https://sfault-image.b0.upaiyun.com/159/297/1592977061-59c27f1d46a1a_articlex" alt=""></p>
+<p>线性回归困境在于：</p>
+<ul>
+<li>当$x_1=0$时，$y$随着$x_2$的增大而增大(从0-&gt;1)</li>
+<li>当$x_1=1$时，$y$随着$x_2$的增大而减小(从1-&gt;0)</li>
+</ul>
+<p>        在这里，Logistic Regression增加了激活函数，相当于对原线性函数做了一个非线性变换，于是假设函数将变为：</p>
+<p>$$f(x, W, c, \omega, b) = {\omega}^Tmax\{0, W^Tx + c\} + b \tag{5}$$</p>
+<p>        其实就是在公式(1)外套了一个非线性函数。此时设置：</p>
+<p>$$W = \begin {bmatrix}1 &amp; 1\\ 1 &amp; 1\end{bmatrix}$$</p>
+<p>$$c = \begin {bmatrix}0 \\ -1 \end{bmatrix}$$</p>
+<p>$$\omega = \begin {bmatrix}1 \\ -2 \end{bmatrix}$$</p>
+<p>$$b=0$$</p>
+<p>        按条件：</p>
+<p>$$X = \begin {bmatrix}0 &amp; 0\\ 0 &amp; 1\\ 1 &amp; 0\\ 1 &amp; 1\end{bmatrix}$$</p>
+<p>        于是：</p>
+<p>$$XW = \begin {bmatrix}0 &amp; 0\\ 1 &amp; 1\\ 1 &amp; 1\\ 2 &amp; 2\end{bmatrix}$$</p>
+<p>        再加上$c$：</p>
+<p>$$XW+c = \begin {bmatrix}0 &amp; -1\\ 1 &amp; 0\\ 1 &amp; 0\\ 2 &amp; 1\end{bmatrix}$$</p>
+<p>        根绝ReLU特性：</p>
+<p>$$max\{0, XW+c\} = \begin {bmatrix}0 &amp; 0\\ 1 &amp; 0\\ 1 &amp; 0\\ 2 &amp; 1\end{bmatrix}$$</p>
+<p>        其图像为：</p>
+<p><img src="https://sfault-image.b0.upaiyun.com/249/631/2496315672-59c27ff9e9e58_articlex" alt=""></p>
+<p>        我们发现此时已经线性可分了，外层使用线性函数即可划分出超平面：</p>
+<p>$${\omega}^Tmax\{0, XW + c\} + b  = \begin {bmatrix}0 \\ 1 \\ 1 \\ 0\end{bmatrix}$$</p>
+<p>        一个不规范的表述是：非线性的激活函数能&quot;学习&quot;特征之间的相互作用，从而使线性回归不可分(区别于线性不可分)的数据变的可分。顺便一提，ReLU函数相比sigmoid函数，有如下优势：</p>
+<ul>
+<li>ReLU的近似线性，使其在反向梯度计算时方便计算和推演。而事实上它是非线性的，因此能解决线性回归不能解决的分类困境。</li>
+<li>反向传播梯度下降更快。sigmoid函数被弃用的一个重要原因就是其在$[-1,1]$区间接近两端的位置梯地下降缓慢，训练时间很长。</li>
+</ul>
+<h1>3. LR的一些推导和思考</h1>
+<p>        上文公式(4)中，我们已经给出了损失函数$J$的计算方法，剩下的就是求梯度。Ng在Programming Assignment中给出了如下公式：</p>
+<p>$$ \frac{\partial J}{\partial w} = \frac{1}{m}X(A-Y)^T\tag{6}$$
+$$ \frac{\partial J}{\partial b} = \frac{1}{m} \sum_{i=1}^m (a^{(i)}-y^{(i)})\tag{7}$$</p>
+<p>        下面给出推导过程。对某个样本，其预测值为$a$，真实值为$y$, 参数分别为$\omega$和$b$，则当前已知条件为:</p>
+<p>$$\begin{cases}J=-(ylog(a)+(1-y)log(1-a)) \\ a=sigmoid(z) \\ z=\omega x + b \end{cases}$$</p>
+<p>        sigmoid函数特性如下：</p>
+<p>$$g(z) = \frac{1}{1+e^{-z}}$$</p>
+<p>$$g'(z) = g(z) \cdot (1-g(z))$$</p>
+<p>        因此：
+$$\frac{\partial{J}}{\partial{\omega}} = \frac{\partial{J}}{\partial{a}} \cdot \frac{\partial{a}}{\partial{z}} \cdot \frac{\partial{z}}{\partial{\omega}} $$</p>
+<p>$$= (-\frac{y}{a} + \frac{1-y}{1-a}) \cdot a(1-a) \cdot x$$</p>
+<p>$$= (a-y)x$$</p>
+<p>        此时不难看出:
+$$\frac{\partial{J}}{\partial{b}} = a-y$$</p>
+<p>        整个Logistic Regression到此结束。</p>
+<h1>4. Neural Network</h1>
+<p>        对一个N层经网络，如下图：</p>
+<p><img src="dnn.png" alt=""></p>
+<p>        每层内部的前向计算公式均为：</p>
+<p>$$\begin{cases}Z^{[l]}=W^{[l]}a^{[l-1]} + b^{[l]} \\ a^{[l]} = g(z^{[l]}) \end{cases}$$</p>
+<p>        其中所有隐含层的激活函数均为Rectified function，输出层的激活函数为sigmoid function。结构如下：</p>
+<p><img src="sequence.png" alt=""></p>
+<p>        关于DNN梯度的计算，Ng也只给出了公式：</p>
+<p>$$ dW^{[l]} = \frac{\partial \mathcal{L} }{\partial W^{[l]}} = \frac{1}{m} dZ^{[l]} A^{[l-1] T} \tag{8}$$
+$$ db^{[l]} = \frac{\partial \mathcal{L} }{\partial b^{[l]}} = \frac{1}{m} \sum_{i = 1}^{m} dZ^{[l]}\tag{9}$$
+$$ dA^{[l-1]} = \frac{\partial \mathcal{L} }{\partial A^{[l-1]}} = W^{[l] T} dZ^{[l]} \tag{10}$$</p>
+<p>        其中：</p>
+<p>$$dZ^{[l]} = dA^{[l]} * g'(Z^{[l]}) \tag{11}$$</p>
+<p>        推导也不难：</p>
+<p>$$ dW^{[l]} = \frac{\partial \mathcal{L} }{\partial W^{[l]}} = \frac{\partial \mathcal{L} }{\partial Z^{[l]}} \cdot \frac{\partial  Z^{[l]} }{\partial W^{[l]}}$$</p>
+<p>$$= dZ^{[l]} A^{[l-1] T}$$</p>
+<p>        我们发现，要计算$dZ^{[l]}$又需要$dA^{[l]} $，而想要知道$ dA^{[l]}$又得知道$ dZ^{[l+1]} $，这种“顺藤摸瓜”的寻找只有在输出层才会终止，在那里:
+$$da = - \frac{y}{a} + \frac{1-y}{1-a} \tag{上文已推导过}$$</p>
+<p>        因此对神经网络梯度的更新将由深向浅层逆序进行，部分代码如下：</p>
+<p><figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># GRADED FUNCTION: L_model_backward</span></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">L_model_backward</span><span class="params">(AL, Y, caches)</span>:</span></div><div class="line">    </div><div class="line">    <span class="comment"># Initializing the backpropagation</span></div><div class="line">    dAL = - (np.divide(Y, AL) - np.divide(<span class="number">1</span> - Y, <span class="number">1</span> - AL))</div><div class="line">    </div><div class="line">    current_cache = caches[L<span class="number">-1</span>]</div><div class="line">    grads[<span class="string">"dA"</span> + str(L)], grads[<span class="string">"dW"</span> + str(L)], grads[<span class="string">"db"</span> + str(L)] = linear_activation_backward(dAL, current_cache, <span class="string">"sigmoid"</span>)</div><div class="line">    </div><div class="line">    <span class="comment"># update parameters in reverse order.</span></div><div class="line">    <span class="keyword">for</span> l <span class="keyword">in</span> reversed(range(L<span class="number">-1</span>)):</div><div class="line">        current_cache = caches[l]</div><div class="line">        dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads[<span class="string">"dA"</span> + str(l+<span class="number">2</span>)], current_cache, <span class="string">"relu"</span>)</div><div class="line">        grads[<span class="string">"dA"</span> + str(l + <span class="number">1</span>)] = dA_prev_temp</div><div class="line">        grads[<span class="string">"dW"</span> + str(l + <span class="number">1</span>)] = dW_temp</div><div class="line"></div><div class="line">    <span class="keyword">return</span> grads</div></pre></td></tr></table></figure></p>
+<p>        注意到公式(8)(9)(10)并不像LR中一样给出最终数据的计算公式，而是每次都使用当前的临时数据，例如要计算$ dW^{[l]} $需要$ dZ^{[l]} $和$A^{[l-1] T}$，因此每一层需要缓存当前的$A,W,Z,b$等信息。</p>
+<p>        之后就是选取一个合适的学习速率$\alpha$，对$W$和$b$不断更新。此处再回看LR，发现二者本质很相似，可以说<strong>Logistic Regression是1-layer的NN</strong>，它只包含输入和输出层，无隐含层。</p>
+<h1>5. 参考材料</h1>
 <ul>
 <li><a href="https://www.coursera.org/learn/neural-networks-deep-learning/" target="_blank" rel="external">Andrew Ng的Deep Learning课程</a></li>
 <li><a href="http://ronny.rest/blog/post_2017_08_12_logistic_regression_derivative/" target="_blank" rel="external">Derivatives for logistic regression - step by step</a></li>

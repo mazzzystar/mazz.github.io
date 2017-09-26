@@ -96,7 +96,7 @@
 <p><img src="http://ronny.rest/media/blog/2017/2017_08_12_logistic_regression_derivative/logistic_regression_graph.png" alt="lr"></p>
 <p>逻辑回归相比线性回归，差异从公式(2)(3)中已初见端倪：</p>
 <p>        <strong>1. 损失函数的计算从MSE变为cross-entropy。</strong></p>
-<p>        神经网络中**&quot;The choice of cost function is tightly coupled with the choice of output unit&quot;*<em>的说法在logistic regression中同样适用。sigmoid函数的特性决定了它在$y \approx 1$和$y \approx -1$时出现“梯度消失”(saturation)。因此$log$形式的cross-entropy能极大地减缓此效应，只有在$y \approx 1 $且$z$是很大的正值，或者$y \approx -1 $且$z$是很小的负值时，此现象才会发生。<em>Ian Goodfellow的</em>Deep Learning</em>中给出了详细推导过程。</p>
+<p>        神经网络中&quot;The choice of cost function is tightly coupled with the choice of output unit&quot;的说法在logistic regression中同样适用。sigmoid函数的特性决定了它在$y \approx 1$和$y \approx -1$时出现“梯度消失”(saturation)。因此$log$形式的cross-entropy能极大地减缓此效应，只有在$y \approx 1 $且$z$是很大的正值，或者$y \approx -1 $且$z$是很小的负值时，此现象才会发生。<em>Ian Goodfellow</em>的<em>Deep Learning</em>中给出了详细推导过程。</p>
 <p>        <strong>2. 增加了激活函数(activation function)。</strong></p>
 <p>        这是很关键的一步，它相当于对原有的线性加权函数做了一个非线性变换。那么非线性变换的意义在哪？</p>
 <p>        为了更清晰地解释非线性变换的意义，此处将激活函数简化为ReLU(Rectified Linear Unit) function, 其函数形式：</p>
@@ -104,7 +104,7 @@
 <p>        图像如下：</p>
 <p><img src="https://relinklabs.com/imager/uploads/images/1107/Screen-Shot-2017-06-23-at-1.27.11-PM_d4e4e04a52bfbdbeab5ba4d2cf1d1390.png" alt="ReLU"></p>
 <p>        图中橘黄色的直线是对ReLU的改进，称为leaky ReLU。</p>
-<p>        假设现在我们要使用线性模型构造与或门(XOR)，即对如下几组输入：
+<p>        假设现在我们要使用线性模型构造异或门(XOR)，即对如下几组输入：
 $$x_1 = [0, 0] \qquad x_2 = [0, 1] \qquad x_3=[1, 0] \qquad x_4=[1, 1] $$</p>
 <p>        希望$y$值分别是:
 $$[0, 1, 1, 0]$$</p>
@@ -237,7 +237,24 @@ Deep Learning</li>
         ga('create', 'UA-98699464-1', 'auto');
         ga('send', 'pageview');
 
-    </script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+    </script>
+
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
 <script type="text/x-mathjax-config">
   MathJax.Hub.Config("");
 </script>
@@ -255,8 +272,6 @@ Deep Learning</li>
 </script>
 <!-- End: Injected MathJax -->
 <!-- hexo-inject:end -->
-
-
 </body>
 
 </html>

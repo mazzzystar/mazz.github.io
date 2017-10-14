@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<!-- Head tag -->
+<head>
+    <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--Description-->
+    
+        <meta name="description" content="两周之后我将在组内做一个有关RNN的分享会，此处记下近几日入门RNN时的部分总结。本文仅介绍RNN的结构、梯度计算、代码实现、常见的训练问题和解决方案。对于LSTM/GRU和近期火热的SRU的总结会在下一篇系列文章里给出。">
+    
+
+    <!--Author-->
+    
+        <meta name="author" content="ringo">
+    
+
+    <!-- Title -->
+    
+    <title>RNN系列之一：vanilla RNN | 林戈的小酒馆。</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="//cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Custom Fonts -->
+    <link href="//cdn.bootcss.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='//fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]--><!-- hexo-inject:begin --><!-- hexo-inject:end -->
+</head>
+
+<body  background-color:rgb(255,241,229);>
+
+    <!-- hexo-inject:begin --><!-- hexo-inject:end --><!-- Content -->
+    <section class="article-container">
+<!-- Back Home -->
+<a class="nav-back" href="/">
+    <i class="fa fa-puzzle-piece"></i>
+</a>
+
+<!-- Page Header -->
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1>RNN系列之一：vanilla RNN</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Main Content -->
+            <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <p>        两周之后我将在组内做一个有关RNN的分享会，此处记下近几日入门RNN时的部分总结。本文仅介绍RNN的结构、梯度计算、代码实现、常见的训练问题和解决方案。对于LSTM/GRU和近期火热的SRU的总结会在下一篇系列文章里给出。</p>
+<h1>RNN的结构</h1>
+<p>        RNN(Recurrent Neural Network)也叫循环神经网络，是Sequence Model中非常著名的一种结构。传统的神经网络中，不同的输入$x_i$与$x_{i+1}$之间毫无关联，同理输出$y_i$与$y_{i+1}$间也是如此。这在现实生活中与时序相关的语料集中是非常不合理的。例如AI音乐生成过程中对时刻$t$音符的音调(C5 or Amaj7)的预测，与时刻$t$之前的全部历史音符息息相关。RNN被设计出的结构也正与&quot;对时刻$t$的预测与$t$之前的全部信息有关&quot;， 我将其形容为一种<strong>靠左</strong>的结构，即$t$时刻的预测与未来无关，相比之下word2vec则与过去未来均有关。</p>
+<p>        众多语言模型(Language Model)中另一个与RNN十分相似的是<a href="http://ringo.pub/2017/08/05/n-grams/" target="_blank" rel="external">N-Grams</a>模型，N-Grams也是靠左的一种结构。但N-Grams的缺陷非常明显：</p>
+<ul>
+<li>并不能完全包含$t$时刻之前的全部序列信息{$x_0, x_1, ..., x_{t-1}$}。事实上之所以叫<strong>N</strong>-grams，就是因为仅截取了时序$t$之前的$N-1$个音符，而RNN则(理论上)包含此前的全部音符。</li>
+<li>N-Grams非常消耗内存。我们知道$N$值越大，则&quot;记住&quot;的时序越多，效果也会更好。但同时要存储的grams也越多。一段包含$m$个音符的旋律，使用N-grams则需要存储$(m-n+1) \cdot n$个音符信息。</li>
+</ul>
+<p>        下图是RNN的折叠和展开后的结构：</p>
+<p><img src="http://d3kbpzbmcynnmx.cloudfront.net/wp-content/uploads/2015/09/rnn.jpg" alt="rnn-structure"></p>
+<p>        如果我们将$x$视为一段旋律，$x_t$代表其中第$t$个音符(也可以说&quot;时序$t$处的音符&quot;)，$o_t$是对时序$t$处音符的预测，$s_t$是神经网络中第$t$个隐含层，我们可以把它理解为&quot;时序$t$处的记忆&quot;，整个过程传导函数为：</p>
+<p>$$s_t = tanh(Ux_t + Ws_{t-1})\tag{1}$$
+$$o_t = softmax(Vs_t)\tag{2}$$</p>
+<p>        与传统神经网络每一层都有自己的参数不同的是，<strong>RNN中参数U、W、V被所有隐含层共享</strong>。参数共享带来的好处是，支持隐含层长度动态变化。</p>
+<p>        结合公式与结构图可以看到，标准的RNN中信息的主要通过隐含层$s_{t-1}$向$s_t$流动。Deep Learning书中还给出了另一种信息流动的方式:</p>
+<p><img src="another-RNN.png" alt=""></p>
+<p>        与保准RNN信息流动不同的是，上图信息是从$o_{t-1}$向$s_t$流动。它的好处是能加快并行计算：在计算前向传递时，直接将真实输出$y_{t-1}$作为$s_t$的输入，这被称为teacher forcing。但它的效果不如标准RNN：相比$h_{t-1}$向$h_t$的输入，最终预测结果$o_{t-1}$向$o_t$的输入表征能力被弱化了。此外，标准RNN的能接受任意形式的输入和输出，但上图中RNN的输出由于需要用于信息传递，其输出形式必定受到限制。</p>
+
+ 
+                <!-- Meta -->
+                <div class="post-meta">
+                    <hr>
+                    <br>
+                    <div class="post-tags">
+                        
+                            
+
+<a href="/tags/深度学习/">#深度学习</a> <a href="/tags/神经网络/">#神经网络</a>
+
+
+                        
+                    </div>
+                    <div class="post-date">
+                        2017 年 10 月 14 日
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <!-- Disqus Comments -->
+
+
+            </div>
+        </div>
+    </div>
+</article>
+</section>
+
+    <!-- Scripts -->
+    <!-- jQuery -->
+<script src="//cdn.bootcss.com/jquery/2.2.1/jquery.min.js"></script>
+<!-- Bootstrap -->
+<script src="//cdn.bootcss.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+	console.log('Hexo-theme-hollow designed by zchen9 🙋 © 2015-' + (new Date()).getFullYear());
+</script>
+
+    <!-- Google Analytics -->
+    
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+                    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+                m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+        ga('create', 'UA-98699464-1', 'auto');
+        ga('send', 'pageview');
+
+    </script>
+
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config("");
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="custom_mathjax_source">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
+</body>
+
+</html>

@@ -87,20 +87,70 @@
 <p>        如果我们将$x$视为一段旋律，$x_t$代表其中第$t$个音符(也可以说&quot;时序$t$处的音符&quot;)，$o_t$是对时序$t$处音符的预测，$s_t$是神经网络中第$t$个隐含层，我们可以把它理解为&quot;时序$t$处的记忆&quot;，整个过程传导函数为：</p>
 <p>$$s_t = tanh(Ux_t + Ws_{t-1})\tag{1}$$
 $$o_t = softmax(Vs_t)\tag{2}$$</p>
-<p>        与传统神经网络每一层都有自己的参数不同的是，<strong>RNN中参数U、W、V被所有隐含层共享</strong>。参数共享带来的好处是，支持隐含层长度动态变化。</p>
-<p>        结合公式与结构图可以看到，标准的RNN中信息主要通过隐含层$s_{t-1}$向$s_t$流动。Deep Learning书中还给出了另一种信息流动的方式:</p>
+<p>        与传统神经网络每一层都有自己的参数不同的是，<strong>RNN中参数U、W、V被所有隐含层共享</strong>。<strong>参数共享带来的好处是，支持隐含层长度动态变化</strong>。我们且通过(1)(2)式各参数维度来解读这一点：</p>
+<p>假设这段旋律长度为$T$，整个音阶(可以类比文本中的词典)包含56种声调，那么对每个音符$x_t$，其维度为$56 \times 1$。
+定义隐含层的维度为100，则有：</p>
+<p>$$x_t \in \mathbb{R}^{56} \quad
+U \in \mathbb{R}^{100 \times 56} \quad
+W \in \mathbb{R}^{100 \times 100} \quad
+s_t \in \mathbb{R}^{100} \quad
+V \in \mathbb{R}^{56 \times 100} \quad
+o_t \in \mathbb{R}^{100}
+$$
+        所以共享参数U、W、V的维度与变长序列x的长度没有关系，这是共享参数能支持动态序列的原因。(请读者代入公式(1)(2)验证维度)</p>
+<p>        结合公式与结构图还可以看到，标准的RNN中信息主要通过隐含层$s_{t-1}$向$s_t$流动。Deep Learning书中还给出了另一种信息流动的方式:</p>
 <p><img src="another-RNN.png" alt=""></p>
 <p>        与标准RNN信息流动不同的是，上图结构中信息是从$o_{t-1}$向$s_t$流动。它的好处是能加快并行计算：在计算前向传递时，直接将真实输出$y_{t-1}$作为$s_t$($h_t$与$s_t$同义，下同)的输入，这被称为teacher forcing。但它的效果不如标准RNN：相比$s_{t-1}$向$s_t$的输入，最终预测结果$o_{t-1}$向$s_t$的输入表征能力被弱化了。此外，标准RNN的能接受任意形式的输入和输出，但上图中RNN的输出$o_t$需用于信息传递，因此输出形式必定受到限制。</p>
 <h1>训练与梯度计算</h1>
-<p>        根据我们以往学习神经网络的经验，其主要部分为：输入、输出、网络结构、前向传递函数、损失计算、信息反向传播。假如我们有音符长度各不相同的$n$段旋律，那么：</p>
+<p>        根据我们以往学习神经网络的经验，其主要部分为：输入、输出、网络结构、前向传递函数、损失计算、信息反向传播。假如我们有音符长度各不相同的$N$段旋律，那么：</p>
 <ul>
 <li>输入$x_t$：某段旋律的第$t$个音符</li>
 <li>输出$o_t$：对输入$x_t$的下一个旋律的预测</li>
 <li>网络结构：信息从隐含层$s_{t-1}$向$s_t$流动</li>
 <li>前向传递函数：如公式(1)(2)所示</li>
-<li>损失计算：假设这段旋律长度为$T$，将$x_{t-1}$真实的下一个音符记为$y_t$（其实在本例中$y_t=x_t=prediction(x_{t-1})$），则有：</li>
+<li>误差计算：假设第$n$段旋律长度为$T$，将$x_t$真实的下一个音符记为其正确输出$y_t$，即在本例中$y_t=x_{t+1}=prediction(x_t)$，则有：</li>
 </ul>
-<p>$$L= -\frac{1}{T} \sum_{t=1}^{T}y_t log(o_t)$$</p>
+<p>        第$n$段旋律的第$t$个音符误差$E_{n,t}$：
+$$E_{n,t}= -y_t log(o_t)\tag{3}$$</p>
+<p>        第$n$段旋律的整体误差$E_{n}$:</p>
+<p>$$E_n= -\sum_{t=1}^{T}y_t log(o_t)\tag{4}$$</p>
+<p>        因此这$N$段旋律的总损失函数为：</p>
+<p>$$E=\frac{1}{N}\sum_{i=1}^{N}E_i=-\frac{1}{N}\sum_{i=1}^{N}\sum_{t=1}^{T}y_t log(o_t)$$</p>
+<h2>BPTT</h2>
+<p>        BPTT(Backpropagation through time)是为时间序列模型的Backpropagetion过程专起的一个别名，本质上无异。现在我们来计算各参数BP过程中的梯度，以共享参数V为例：</p>
+<p>$$\frac{\partial{E}}{\partial{V}}=\sum_{i=1}^{N}\frac{\partial{E_i}}{\partial{V}}=\sum_{i=1}^{N}\sum_{t=1}^{T}\frac{\partial{E_{i,t}}}{\partial{V}}$$</p>
+<p>        其中$E_{i,t}$指第$i$段旋律的第$t$个音符，上式核心是计算$\frac{\partial{E_{i,t}}}{\partial{V}}$，为此我们简化符号，仅考虑某一段旋律，以$E_t$代表该段旋律第$t$个音符，则们结合公式(2)(3)可知：
+$$E_t= -y_t log(o_t)$$
+$$=-y_t log(softmax(Vs_t))$$</p>
+<p>        此处将不赘述如何对$softmax$求导，详细可以看<a href="https://math.stackexchange.com/questions/945871/derivative-of-softmax-loss-function" target="_blank" rel="external">这里</a>。
+我们令：
+$$o_t^{'}=Vs_t\tag{5}$$
+        根据softmax导数特性，有：
+$$\frac{\partial{E_t}}{\partial{o_{t}^{'}}} = o_t-y_t\tag{6}$$</p>
+<p>        因此:
+$$\frac{\partial{E_t}}{\partial{V}} = (o_t-y_t)*s_t\tag{7}$$</p>
+<p>        关于共享参数V的梯度计算已经解决，那么U和W呢？根据公式(1)(5)可知，我们首先需要计算$\frac{\partial{E_t}}{\partial{s_t}}$，然后再由$s_t$推导U和W，以W为例：
+令(1)式中：
+$$z_t = Ux_t + Ws_{t-1}\tag{8}$$
+        则有：
+$$\frac{\partial{E_t}}{\partial{W}} = \frac{\partial{E_t}}{\partial{s_t}}\frac{\partial{s_t}}{\partial{z_t}}\frac{\partial{z_t}}{\partial{W}}$$</p>
+<p>        相信根据公式(6)读者能很快解决$\frac{\partial{E_t}}{\partial{s_t}}$，而$\frac{\partial{s_t}}{\partial{z_t}}$仅仅是求$tanh$的导数而已，有：
+$$tanh^{'}{x}=1-tanh^{2}(x)$$</p>
+<p>        因此有：
+$$\frac{\partial{E_t}}{\partial{W}}=V*(o_t-y_t)\frac{\partial{s_t}}{\partial{z_t}}\frac{\partial{z_t}}{\partial{W}}$$
+$$=V*(o_t-y_t)(1-s_{t}^{2})\frac{\partial{z_t}}{\partial{W}}$$</p>
+<p>        现在的重点是如何求$\frac{\partial{z_t}}{\partial{W}}$，也许根据公式(8)你的第一反应是&quot;结果不就是$s_{t-1}$吗？&quot;，但是请注意到:
+$$s_{t-1}=tanh(Ux_{t-1} + Ws_{t-2})$$</p>
+<p>        即$s_{t-1}$本身也以W为自变量。正确计算方式为：
+$$\frac{\partial{z_t}}{\partial{W}}=\sum_{k=0}^{t}\frac{\partial{z_t}}{\partial{z_k}}\frac{\partial{z_k}}{\partial{W}}\tag{9}$$</p>
+<p>        而其中：
+$$\frac{\partial{z_t}}{\partial{z_k}}=\prod_{j=k+1}^{t}\frac{\partial{z_j}}{\partial{z_{j-1}}}\tag{10}$$</p>
+<p>公式(9)(10)揭示了RNN的2个非常严重的问题：</p>
+<ul>
+<li>根据公式(9)可知，对第$t$个音符的W参数梯度计算将<em>等待前$t-1$个音符的梯度计算完成</em>，这很显然不利于并行计算，后续我会在介绍近期提出的模型SRU在针对此问题的改进方案。总体来说，RNN之所以比CNN训练更慢，本质原因就在于序列梯度计算的依赖性。</li>
+<li>根据公式(9)(10)可以看到，计算$\frac{\partial{z_t}}{\partial{W}}$涉及到求连乘(10)，当序列很长且$\frac{\partial{z_j}}{\partial{z_{j-1}}}$均小于1时，$\frac{\partial{z_t}}{\partial{W}}$结果很容易趋近于0。反过来如果$\frac{\partial{z_j}}{\partial{z_{j-1}}}$均大于1时，$\frac{\partial{z_t}}{\partial{W}}$结果则可能无穷大。前者会让梯度传递&quot;消失&quot;而使训练过程停滞，被称之为<strong>梯度消失(vanishing gradient)</strong>，后者会让梯度值无穷大而无法计算，被称为<strong>梯度爆炸(exploding gradient)</strong>。</li>
+</ul>
+<p>        梯度消失和梯度爆炸在普通的神经网络中也会发生，这是由于BP反馈求导的连乘性质，cs231n提供了一个简单的<a href="http://cs224d.stanford.edu/notebooks/vanishing_grad_example.html" target="_blank" rel="external">梯度消失example</a>，也许你看完能有更深刻的体会。</p>
 <p>        (未完)</p>
 
  

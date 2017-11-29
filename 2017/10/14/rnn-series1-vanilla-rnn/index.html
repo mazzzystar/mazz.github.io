@@ -9,7 +9,7 @@
 
     <!--Description-->
     
-        <meta name="description" content="两周之后我将在组内做一个有关RNN的分享会，此处记下近几日入门RNN时的部分总结。本文仅介绍RNN的结构、梯度计算、代码实现、常见的训练问题和解决方案。对于LSTM/GRU和近期火热的SRU的总结会在下一篇系列文章里给出。">
+        <meta name="description" content="两周之后我将在组内做一个有关RNN的分享会，此处记下近几日入门RNN时的部分总结。本文仅介绍RNN的结构、梯度计算、常见的训练问题和解决方案。对于LSTM/GRU和近期火热的SRU的总结会在下一篇系列文章里给出。">
     
 
     <!--Author-->
@@ -68,7 +68,7 @@
         <div class="row">
             <!-- Post Main Content -->
             <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-                <p>        两周之后我将在组内做一个有关RNN的分享会，此处记下近几日入门RNN时的部分总结。本文仅介绍RNN的结构、梯度计算、代码实现、常见的训练问题和解决方案。对于LSTM/GRU和近期火热的SRU的总结会在下一篇系列文章里给出。</p>
+                <p>        两周之后我将在组内做一个有关RNN的分享会，此处记下近几日入门RNN时的部分总结。本文仅介绍RNN的结构、梯度计算、常见的训练问题和解决方案。对于LSTM/GRU和近期火热的SRU的总结会在下一篇系列文章里给出。</p>
 <h1>RNN的结构</h1>
 <p>        RNN(Recurrent Neural Network)也叫循环神经网络，是Sequence Model中非常著名的一种结构。传统的神经网络中，不同的输入$x_i$与$x_{i+1}$之间毫无关联，同理输出$y_i$与$y_{i+1}$间也是如此。这在现实生活中与时序相关的语料集中是非常不合理的。例如AI音乐生成过程中对时刻$t$音符的音调(C5 or Amaj7)的预测，与时刻$t$之前的全部历史音符息息相关。RNN被设计出的结构也正与&quot;对时刻$t$的预测与$t$之前的全部信息有关&quot;， 我将其形容为一种<strong>靠左</strong>的结构，即$t$时刻的预测与未来无关，相比之下word2vec则与过去未来均有关。</p>
 <p>        众多语言模型(Language Model)中另一个与RNN十分相似的是<a href="http://ringo.pub/2017/08/05/n-grams/" target="_blank" rel="external">N-Grams</a>模型，N-Grams也是靠左的一种结构。但N-Grams的缺陷非常明显：</p>
@@ -148,9 +148,16 @@ $$\frac{\partial{z_t}}{\partial{z_k}}=\prod_{j=k+1}^{t}\frac{\partial{z_j}}{\par
 <p>公式(9)(10)揭示了RNN的2个非常严重的问题：</p>
 <ul>
 <li>根据公式(9)可知，对第$t$个音符的W参数梯度计算将<em>等待前$t-1$个音符的梯度计算完成</em>，这很显然不利于并行计算，后续我会在介绍近期提出的模型SRU在针对此问题的改进方案。总体来说，RNN之所以比CNN训练更慢，本质原因就在于序列梯度计算的依赖性。</li>
-<li>根据公式(9)(10)可以看到，计算$\frac{\partial{z_t}}{\partial{W}}$涉及到求连乘(10)，当序列很长且$\frac{\partial{z_j}}{\partial{z_{j-1}}}$均小于1时，$\frac{\partial{z_t}}{\partial{W}}$结果很容易趋近于0。反过来如果$\frac{\partial{z_j}}{\partial{z_{j-1}}}$均大于1时，$\frac{\partial{z_t}}{\partial{W}}$结果则可能无穷大。前者会让梯度传递&quot;消失&quot;而使训练过程停滞，被称之为<strong>梯度消失(vanishing gradient)</strong>，后者会让梯度值无穷大而无法计算，被称为<strong>梯度爆炸(exploding gradient)</strong>。</li>
+<li>根据公式(9)(10)可以看到，计算$\frac{\partial{z_t}}{\partial{W}}$涉及到求连乘(10)，当序列很长且$\frac{\partial{z_j}}{\partial{z_{j-1}}}$均小于1时，$\frac{\partial{z_t}}{\partial{W}}$结果很容易趋近于0。反过来如果$\frac{\partial{z_j}}{\partial{z_{j-1}}}$均大于1时，$\frac{\partial{z_t}}{\partial{W}}$结果则可能无穷大。前者会让信息传递在几个音符之后&quot;消失&quot;，从而使得$x_t$的信息借由梯度传递到$N$个音符前的$x_{t-N+1}$处时，其值已接近于0，这被称之为<strong>梯度消失(vanishing gradient)</strong>，后者会让梯度值无穷大而无法计算，被称为<strong>梯度爆炸(exploding gradient)</strong>。</li>
 </ul>
 <p>        梯度消失和梯度爆炸在普通的神经网络中也会发生，这是由于BP反馈求导的连乘性质，cs231n提供了一个简单的<a href="http://cs224d.stanford.edu/notebooks/vanishing_grad_example.html" target="_blank" rel="external">梯度消失example</a>，也许你看完能有更深刻的体会。</p>
+<h1>vanilla RNN：问题与解决</h1>
+<p>如上文所说，vanilla RNN一方面因为时间序列的依赖性导致训练时间长，另一方面则因梯度消失和梯度爆炸而使训练过程阻碍重重。</p>
+<p>梯度爆炸很容易在实际训练中观测到：计算的损失变为&quot;NaN&quot;。它的解决方案一般有如下两种：</p>
+<ul>
+<li>梯度修剪(gradient clipping)。例如当梯度计算结果在[-100, 100]以外时，“修剪”为-100或100。这个方法很粗暴但有效。</li>
+<li>退回到之前的某个梯度值。具体来说就是为梯度</li>
+</ul>
 <p>        (未完)</p>
 
  

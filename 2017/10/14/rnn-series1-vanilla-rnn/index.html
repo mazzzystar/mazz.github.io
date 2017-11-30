@@ -163,7 +163,7 @@ $$\frac{\partial{z_t}}{\partial{z_k}}=\prod_{j=k+1}^{t}\frac{\partial{z_j}}{\par
 <p><em>Jane went to the school, and then she saw Tom. Tom yelled to her: &quot;Hey! _&quot;</em></p>
 <p>        后续要提到的LSTM/GRU等结构将缓解这一点，但并不能根除。本文我们仅介绍普遍意义上的RNN如何缓解梯度消失问题:</p>
 <ul>
-<li>gradient regularization，在<a href="http://proceedings.mlr.press/v28/pascanu13.pdf" target="_blank" rel="external">On the difficulty of training recurrent neural networks</a>这篇论文中有提到，这部分我并未深入了解因此不便展开。</li>
+<li>gradient regularization。在<a href="http://proceedings.mlr.press/v28/pascanu13.pdf" target="_blank" rel="external">On the difficulty of training recurrent neural networks</a>这篇论文中有提到，这部分我并未深入了解因此不便展开。</li>
 <li>ReLU+Identity Matrix。这是不久前我被问到如何解决梯度消失时的回答。它源自<a href="https://arxiv.org/abs/1504.00941" target="_blank" rel="external">A Simple Way to Initialize Recurrent Networks of Rectified Linear Units</a>，作者发现将原来的$softmax$换成$ReLU$，并且将权值矩阵U、V、W用单位矩阵初始化,效果将远好于$softmax$加普通的初始化，他们在MNIST数据集上对比了LSTM、ReLU+Tanh、非单位矩阵初始化的RNN+ReLU和IRNN(他们的方法，即Identity matrix RNN)，效果如下图。
 <img src="IRNN.png" alt="IRNN"></li>
 </ul>

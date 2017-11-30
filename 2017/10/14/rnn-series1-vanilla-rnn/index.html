@@ -152,13 +152,34 @@ $$\frac{\partial{z_t}}{\partial{z_k}}=\prod_{j=k+1}^{t}\frac{\partial{z_j}}{\par
 </ul>
 <p>        梯度消失和梯度爆炸在普通的神经网络中也会发生，这是由于BP反馈求导的连乘性质，cs231n提供了一个简单的<a href="http://cs224d.stanford.edu/notebooks/vanishing_grad_example.html" target="_blank" rel="external">梯度消失example</a>，也许你看完能有更深刻的体会。</p>
 <h1>vanilla RNN：问题与解决</h1>
-<p>如上文所说，vanilla RNN一方面因为时间序列的依赖性导致训练时间长，另一方面则因梯度消失和梯度爆炸而使训练过程阻碍重重。</p>
-<p>梯度爆炸很容易在实际训练中观测到：计算的损失变为&quot;NaN&quot;。它的解决方案一般有如下两种：</p>
+<p>        如上文所说，vanilla RNN一方面因为时间序列的依赖性导致训练时间长，另一方面则因梯度消失和梯度爆炸而使训练过程阻碍重重。</p>
+<p>        梯度爆炸很容易在实际训练中观测到：计算的损失变为&quot;NaN&quot;。它的解决方案一般有如下两种：</p>
 <ul>
 <li>梯度修剪(gradient clipping)。例如当梯度计算结果在[-100, 100]以外时，“修剪”为-100或100。这个方法很粗暴但有效。</li>
-<li>退回到之前的某个梯度值。具体来说就是为梯度</li>
+<li>退回到之前的某个梯度值。大体思想是当为以w和b分别为x轴和y轴，每次梯度下降的&quot;曲度&quot;过大时将重新调整为合理曲度，如下图所示，具体可以看Bengio的这篇<a href="http://proceedings.mlr.press/v28/pascanu13.pdf" target="_blank" rel="external">On the difficulty of training recurrent neural networks</a>。</li>
 </ul>
-<p>        (未完)</p>
+<p><img src="gradient-clip.png" alt="gradient-clip"></p>
+<p>        而梯度消失则不容易在训练中观测到，它带来的麻烦是隐秘而不可避免的：使当前单元的梯度无法传递到几个单元或者更远距离之前，这对解决以下这类&quot;长依赖&quot;问题非常不利：</p>
+<p><em>Jane went to the school, and then she saw Tom. Tom yelled to her: &quot;Hey! _&quot;</em></p>
+<p>        后续要提到的LSTM/GRU等结构将缓解这一点，但并不能根除。本文我们仅介绍普遍意义上的RNN如何缓解梯度消失问题:</p>
+<ul>
+<li>gradient regularization，在<a href="http://proceedings.mlr.press/v28/pascanu13.pdf" target="_blank" rel="external">On the difficulty of training recurrent neural networks</a>这篇论文中有提到，这部分我并未深入了解因此不便展开。</li>
+<li>ReLU+Identity Matrix。这是不久前我被问到如何解决梯度消失时的回答。它源自<a href="https://arxiv.org/abs/1504.00941" target="_blank" rel="external">A Simple Way to Initialize Recurrent Networks of Rectified Linear Units</a>，作者发现将原来的$softmax$换成$ReLU$，并且将权值矩阵U、V、W用单位矩阵初始化,效果将远好于$softmax$加普通的初始化，他们在MNIST数据集上对比了LSTM、ReLU+Tanh、非单位矩阵初始化的RNN+ReLU和IRNN(他们的方法，即Identity matrix RNN)，效果如下图。
+<img src="IRNN.png" alt="IRNN"></li>
+</ul>
+<h1>参考材料</h1>
+<ul>
+<li><a href="https://arxiv.org/pdf/1211.5063.pdf" target="_blank" rel="external">On the difficulty of training Recurrent Neural Networks</a></li>
+<li><a href="http://www.wildml.com/2015/09/recurrent-neural-networks-tutorial-part-2-implementing-a-language-model-rnn-with-python-numpy-and-theano/" target="_blank" rel="external">Recurrent Neural Networks Tutorial, Part 2 – Implementing a RNN with Python, Numpy and Theano</a></li>
+<li><a href="http://www.wildml.com/2015/10/recurrent-neural-networks-tutorial-part-3-backpropagation-through-time-and-vanishing-gradients/" target="_blank" rel="external">Recurrent Neural Networks Tutorial, Part 3 – Backpropagation Through Time and Vanishing Gradients</a></li>
+<li><a href="https://math.stackexchange.com/questions/945871/derivative-of-softmax-loss-function" target="_blank" rel="external">How to calculate the derivative of Softmax loss function?</a></li>
+<li><a href="http://cs224d.stanford.edu/notebooks/vanishing_grad_example.html" target="_blank" rel="external">cs231n:Vanishing Gradients Example</a></li>
+<li><a href="http://ai.stanford.edu/~quocle/tutorial2.pdf" target="_blank" rel="external">A Tutorial on Deep Learning Part 2: Autoencoders, Convolutional Neural Networks and Recurrent Neural Networks</a></li>
+<li><a href="http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html" target="_blank" rel="external">Sequence Models and Long-Short Term Memory Networks</a></li>
+<li><a href="http://machinelearning.wustl.edu/mlpapers/paper_files/ICML2011Sutskever_524.pdf" target="_blank" rel="external">Generating Text with Recurrent Neural Networks</a></li>
+<li><a href="https://arxiv.org/pdf/1504.00941.pdf" target="_blank" rel="external">A Simple Way to Initialize Recurrent Networks of Rectified Linear Units</a></li>
+<li><a href="http://pytorch.org/tutorials/intermediate/char_rnn_classification_tutorial.html" target="_blank" rel="external">Classifying Names with a Character-Level RNN</a></li>
+</ul>
 
  
                 <!-- Meta -->

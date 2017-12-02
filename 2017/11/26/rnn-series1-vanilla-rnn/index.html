@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<!-- Head tag -->
+<head>
+    <!-- hexo-inject:begin --><!-- hexo-inject:end --><meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--Description-->
+    
+        <meta name="description" content="两周之后我将在组内做一个有关RNN的分享会，此处记下近几日入门RNN时的部分总结。本文仅介绍RNN的结构、梯度计算、常见的训练问题和解决方案。对于LSTM/GRU和近期火热的SRU的总结会在下一篇系列文章里给出。">
+    
+
+    <!--Author-->
+    
+        <meta name="author" content="ringo">
+    
+
+    <!-- Title -->
+    
+    <title>RNN系列之一：vanilla RNN | 林戈的小酒馆。</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="//cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Custom Fonts -->
+    <link href="//cdn.bootcss.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='//fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]--><!-- hexo-inject:begin --><!-- hexo-inject:end -->
+</head>
+
+<body  background-color:rgb(255,241,229);>
+
+    <!-- hexo-inject:begin --><!-- hexo-inject:end --><!-- Content -->
+    <section class="article-container">
+<!-- Back Home -->
+<a class="nav-back" href="/">
+    <i class="fa fa-puzzle-piece"></i>
+</a>
+
+<!-- Page Header -->
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1>RNN系列之一：vanilla RNN</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Main Content -->
+            <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <p>        两周之后我将在组内做一个有关RNN的分享会，此处记下近几日入门RNN时的部分总结。本文仅介绍RNN的结构、梯度计算、常见的训练问题和解决方案。对于LSTM/GRU和近期火热的SRU的总结会在下一篇系列文章里给出。</p>
+<h1>RNN的结构</h1>
+<p>        RNN(Recurrent Neural Network)也叫循环神经网络，是Sequence Model中非常著名的一种结构。传统的神经网络中，不同的输入$x_i$与$x_{i+1}$之间毫无关联，同理输出$y_i$与$y_{i+1}$间也是如此。这在现实生活中与时序相关的语料集中是非常不合理的。例如AI音乐生成过程中对时刻$t$音符的音调(C5 or Amaj7)的预测，与时刻$t$之前的全部历史音符息息相关。RNN被设计出的结构也正与&quot;对时刻$t$的预测与$t$之前的全部信息有关&quot;， 我将其形容为一种<strong>靠左</strong>的结构，即$t$时刻的预测与未来无关，相比之下word2vec则与过去未来均有关。</p>
+<p>        众多语言模型(Language Model)中另一个与RNN十分相似的是<a href="http://ringo.pub/2017/08/05/n-grams/" target="_blank" rel="external">N-Grams</a>模型，N-Grams也是靠左的一种结构。但N-Grams的缺陷非常明显：</p>
+<ul>
+<li>并不能完全包含$t$时刻之前的全部序列信息{$x_0, x_1, ..., x_{t-1}$}。事实上之所以叫<strong>N</strong>-grams，就是因为仅截取了时序$t$之前的$N-1$个音符，即对条件概率做了如下近似：</li>
+</ul>
+<p>$$P(w_1^n)=P(w_1)P(w_2|w_1)P(w_3|w_1^2)...P(w_n|w_1^{n-1})$$</p>
+<p>$$=\prod_{k=1}^nP(X_k|X_1^{k-1})$$</p>
+<p>$$\approx \prod_{k=1}^{n}P(w_k|w_{k-N+1}^{k-1})$$</p>
+<p>        而RNN则(理论上)包含此前的全部音符。</p>
+<ul>
+<li>内存消耗随着N值增大迅速增加。$N$值越大则模型能&quot;记住&quot;的时序越多，效果也会更好(当然所需要的语料集也更多)。但同时要存储的grams也越多。一段包含$m$个音符的旋律，使用N-grams则需要存储$(m-N+1) \cdot N$个音符信息。</li>
+</ul>
+<p>        下图是RNN的折叠和展开后的结构：</p>
+<p><img src="http://d3kbpzbmcynnmx.cloudfront.net/wp-content/uploads/2015/09/rnn.jpg" alt="rnn-structure"></p>
+<p>        如果我们将$x$视为一段旋律，$x_t$代表其中第$t$个音符(也可以说&quot;时序$t$处的音符&quot;)，$o_t$是对时序$t$处音符的预测，$s_t$是神经网络中第$t$个隐含层，我们可以把它理解为&quot;时序$t$处的记忆&quot;，整个过程传导函数为：</p>
+<p>$$s_t = tanh(Ux_t + Ws_{t-1})\tag{1}$$
+$$o_t = softmax(Vs_t)\tag{2}$$</p>
+<p>        与传统神经网络每一层都有自己的参数不同的是，<strong>RNN中参数U、W、V被所有隐含层共享</strong>。<strong>参数共享带来的好处是，支持隐含层长度动态变化</strong>。我们且通过(1)(2)式各参数维度来解读这一点：</p>
+<p>假设这段旋律长度为$T$，整个音阶(可以类比文本中的词典)包含56种声调，那么对每个音符$x_t$，其维度为$56 \times 1$。
+定义隐含层的维度为100，则有：</p>
+<p>$$x_t \in \mathbb{R}^{56} \quad
+U \in \mathbb{R}^{100 \times 56} \quad
+W \in \mathbb{R}^{100 \times 100} \quad
+s_t \in \mathbb{R}^{100} \quad
+V \in \mathbb{R}^{56 \times 100} \quad
+o_t \in \mathbb{R}^{100}
+$$
+        所以共享参数U、W、V的维度与变长序列x的长度没有关系，这是共享参数能支持动态序列的原因。(请读者代入公式(1)(2)验证维度)</p>
+<p>        结合公式与结构图还可以看到，标准的RNN中信息主要通过隐含层$s_{t-1}$向$s_t$流动。Deep Learning书中还给出了另一种信息流动的方式:</p>
+<p><img src="another-RNN.png" alt=""></p>
+<p>        与标准RNN信息流动不同的是，上图结构中信息是从$o_{t-1}$向$s_t$流动。它的好处是能加快并行计算：在计算前向传递时，直接将真实输出$y_{t-1}$作为$s_t$($h_t$与$s_t$同义，下同)的输入，这被称为teacher forcing。但它的效果不如标准RNN：相比$s_{t-1}$向$s_t$的输入，最终预测结果$o_{t-1}$向$s_t$的输入表征能力被弱化了。此外，标准RNN的能接受任意形式的输入和输出，但上图中RNN的输出$o_t$需用于信息传递，因此输出形式必定受到限制。</p>
+<h1>训练与梯度计算</h1>
+<p>        根据我们以往学习神经网络的经验，其主要部分为：输入、输出、网络结构、前向传递函数、损失计算、信息反向传播。假如我们有音符长度各不相同的$N$段旋律，那么：</p>
+<ul>
+<li>输入$x_t$：某段旋律的第$t$个音符</li>
+<li>输出$o_t$：对输入$x_t$的下一个旋律的预测</li>
+<li>网络结构：信息从隐含层$s_{t-1}$向$s_t$流动</li>
+<li>前向传递函数：如公式(1)(2)所示</li>
+<li>误差计算：假设第$n$段旋律长度为$T$，将$x_t$真实的下一个音符记为其正确输出$y_t$，即在本例中$y_t=x_{t+1}=prediction(x_t)$，则有：</li>
+</ul>
+<p>        第$n$段旋律的第$t$个音符误差$E_{n,t}$：
+$$E_{n,t}= -y_t log(o_t)\tag{3}$$</p>
+<p>        第$n$段旋律的整体误差$E_{n}$:</p>
+<p>$$E_n= -\sum_{t=1}^{T}y_t log(o_t)\tag{4}$$</p>
+<p>        因此这$N$段旋律的总损失函数为：</p>
+<p>$$E=\frac{1}{N}\sum_{i=1}^{N}E_i=-\frac{1}{N}\sum_{i=1}^{N}\sum_{t=1}^{T}y_t log(o_t)$$</p>
+<h2>BPTT</h2>
+<p>        BPTT(Backpropagation through time)是为时间序列模型的Backpropagetion过程专起的一个别名，本质上无异。现在我们来计算各参数BP过程中的梯度，以共享参数V为例：</p>
+<p>$$\frac{\partial{E}}{\partial{V}}=\sum_{i=1}^{N}\frac{\partial{E_i}}{\partial{V}}=\sum_{i=1}^{N}\sum_{t=1}^{T}\frac{\partial{E_{i,t}}}{\partial{V}}$$</p>
+<p>        其中$E_{i,t}$指第$i$段旋律的第$t$个音符，上式核心是计算$\frac{\partial{E_{i,t}}}{\partial{V}}$，为此我们简化符号，仅考虑某一段旋律，以$E_t$代表该段旋律第$t$个音符，则们结合公式(2)(3)可知：
+$$E_t= -y_t log(o_t)$$
+$$=-y_t log(softmax(Vs_t))$$</p>
+<p>        此处将不赘述如何对$softmax$求导，详细可以看<a href="https://math.stackexchange.com/questions/945871/derivative-of-softmax-loss-function" target="_blank" rel="external">这里</a>。
+我们令：
+$$o_t^{'}=Vs_t\tag{5}$$
+        根据softmax导数特性，有：
+$$\frac{\partial{E_t}}{\partial{o_{t}^{'}}} = o_t-y_t\tag{6}$$</p>
+<p>        因此:
+$$\frac{\partial{E_t}}{\partial{V}} = (o_t-y_t)*s_t\tag{7}$$</p>
+<p>        关于共享参数V的梯度计算已经解决，那么U和W呢？根据公式(1)(5)可知，我们首先需要计算$\frac{\partial{E_t}}{\partial{s_t}}$，然后再由$s_t$推导U和W，以W为例：
+令(1)式中：
+$$z_t = Ux_t + Ws_{t-1}\tag{8}$$
+        则有：
+$$\frac{\partial{E_t}}{\partial{W}} = \frac{\partial{E_t}}{\partial{s_t}}\frac{\partial{s_t}}{\partial{z_t}}\frac{\partial{z_t}}{\partial{W}}$$</p>
+<p>        相信根据公式(6)读者能很快解决$\frac{\partial{E_t}}{\partial{s_t}}$，而$\frac{\partial{s_t}}{\partial{z_t}}$仅仅是求$tanh$的导数而已，有：
+$$tanh^{'}{x}=1-tanh^{2}(x)$$</p>
+<p>        因此有：
+$$\frac{\partial{E_t}}{\partial{W}}=V*(o_t-y_t)\frac{\partial{s_t}}{\partial{z_t}}\frac{\partial{z_t}}{\partial{W}}$$
+$$=V*(o_t-y_t)(1-s_{t}^{2})\frac{\partial{z_t}}{\partial{W}}$$</p>
+<p>        现在的重点是如何求$\frac{\partial{z_t}}{\partial{W}}$，也许根据公式(8)你的第一反应是&quot;结果不就是$s_{t-1}$吗？&quot;，但是请注意到:
+$$s_{t-1}=tanh(Ux_{t-1} + Ws_{t-2})$$</p>
+<p>        即$s_{t-1}$本身也以W为自变量。正确计算方式为：
+$$\frac{\partial{z_t}}{\partial{W}}=\sum_{k=0}^{t}\frac{\partial{z_t}}{\partial{z_k}}\frac{\partial{z_k}}{\partial{W}}\tag{9}$$</p>
+<p>        而其中：
+$$\frac{\partial{z_t}}{\partial{z_k}}=\prod_{j=k+1}^{t}\frac{\partial{z_j}}{\partial{z_{j-1}}}\tag{10}$$</p>
+<p>公式(9)(10)揭示了RNN的2个非常严重的问题：</p>
+<ul>
+<li>根据公式(9)可知，对第$t$个音符的W参数梯度计算将<em>等待前$t-1$个音符的梯度计算完成</em>，这很显然不利于并行计算，后续我会在介绍近期提出的模型SRU在针对此问题的改进方案。总体来说，RNN之所以比CNN训练更慢，本质原因就在于序列梯度计算的依赖性。</li>
+<li>根据公式(9)(10)可以看到，计算$\frac{\partial{z_t}}{\partial{W}}$涉及到求连乘(10)，当序列很长且$\frac{\partial{z_j}}{\partial{z_{j-1}}}$均小于1时，$\frac{\partial{z_t}}{\partial{W}}$结果很容易趋近于0。反过来如果$\frac{\partial{z_j}}{\partial{z_{j-1}}}$均大于1时，$\frac{\partial{z_t}}{\partial{W}}$结果则可能无穷大。前者会让信息传递在几个音符之后&quot;消失&quot;，从而使得$x_t$的信息借由梯度传递到$N$个音符前的$x_{t-N+1}$处时，其值已接近于0，这被称之为<strong>梯度消失(vanishing gradient)</strong>，后者会让梯度值无穷大而无法计算，被称为<strong>梯度爆炸(exploding gradient)</strong>。</li>
+</ul>
+<p>        梯度消失和梯度爆炸在普通的神经网络中也会发生，这是由于BP反馈求导的连乘性质，cs231n提供了一个简单的<a href="http://cs224d.stanford.edu/notebooks/vanishing_grad_example.html" target="_blank" rel="external">梯度消失example</a>，也许你看完能有更深刻的体会。</p>
+<h1>vanilla RNN：问题与解决</h1>
+<p>        如上文所说，vanilla RNN一方面因为时间序列的依赖性导致训练时间长，另一方面则因梯度消失和梯度爆炸而使训练过程阻碍重重。</p>
+<p>        梯度爆炸很容易在实际训练中观测到：计算的损失变为&quot;NaN&quot;。它的解决方案一般有如下两种：</p>
+<ul>
+<li>梯度修剪(gradient clipping)。例如当梯度计算结果在[-100, 100]以外时，“修剪”为-100或100。这个方法很粗暴但有效。</li>
+<li>退回到之前的某个梯度值。大体思想是当为以w和b分别为x轴和y轴，每次梯度下降的&quot;曲度&quot;过大时将重新调整为合理曲度，如下图所示，具体可以看Bengio的这篇<a href="http://proceedings.mlr.press/v28/pascanu13.pdf" target="_blank" rel="external">On the difficulty of training recurrent neural networks</a>。</li>
+</ul>
+<p><img src="gradient-clip.png" alt="gradient-clip"></p>
+<p>        而梯度消失则不容易在训练中观测到，它带来的麻烦是隐秘而不可避免的：使当前单元的梯度无法传递到几个单元或者更远距离之前，这对解决以下这类&quot;长依赖&quot;问题非常不利：</p>
+<p><em>Jane went to the school, and then she saw Tom. Tom yelled to her: &quot;Hey! _&quot;</em></p>
+<p>        后续要提到的LSTM/GRU等结构将缓解这一点，但并不能根除。本文我们仅介绍普遍意义上的RNN如何缓解梯度消失问题:</p>
+<ul>
+<li>gradient regularization。在<a href="http://proceedings.mlr.press/v28/pascanu13.pdf" target="_blank" rel="external">On the difficulty of training recurrent neural networks</a>这篇论文中有提到，这部分我并未深入了解因此不便展开。</li>
+<li>ReLU+Identity Matrix。这是不久前我被问到如何解决梯度消失时的回答。它源自<a href="https://arxiv.org/abs/1504.00941" target="_blank" rel="external">A Simple Way to Initialize Recurrent Networks of Rectified Linear Units</a>，作者发现将原来的$softmax$换成ReLU，并且将权值矩阵U、V、W用单位矩阵初始化,效果将远好于$softmax$加普通的初始化，他们在MNIST数据集上对比了LSTM、ReLU+Tanh、非单位矩阵初始化的RNN+ReLU和IRNN(他们的方法，即Identity matrix RNN)，效果如下图。
+<img src="IRNN.png" alt="IRNN"></li>
+</ul>
+<h1>参考材料</h1>
+<ul>
+<li><a href="https://arxiv.org/pdf/1211.5063.pdf" target="_blank" rel="external">On the difficulty of training Recurrent Neural Networks</a></li>
+<li><a href="http://www.wildml.com/2015/09/recurrent-neural-networks-tutorial-part-2-implementing-a-language-model-rnn-with-python-numpy-and-theano/" target="_blank" rel="external">Recurrent Neural Networks Tutorial, Part 2 – Implementing a RNN with Python, Numpy and Theano</a></li>
+<li><a href="http://www.wildml.com/2015/10/recurrent-neural-networks-tutorial-part-3-backpropagation-through-time-and-vanishing-gradients/" target="_blank" rel="external">Recurrent Neural Networks Tutorial, Part 3 – Backpropagation Through Time and Vanishing Gradients</a></li>
+<li><a href="https://math.stackexchange.com/questions/945871/derivative-of-softmax-loss-function" target="_blank" rel="external">How to calculate the derivative of Softmax loss function?</a></li>
+<li><a href="http://cs224d.stanford.edu/notebooks/vanishing_grad_example.html" target="_blank" rel="external">cs231n:Vanishing Gradients Example</a></li>
+<li><a href="http://ai.stanford.edu/~quocle/tutorial2.pdf" target="_blank" rel="external">A Tutorial on Deep Learning Part 2: Autoencoders, Convolutional Neural Networks and Recurrent Neural Networks</a></li>
+<li><a href="http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html" target="_blank" rel="external">Sequence Models and Long-Short Term Memory Networks</a></li>
+<li><a href="http://machinelearning.wustl.edu/mlpapers/paper_files/ICML2011Sutskever_524.pdf" target="_blank" rel="external">Generating Text with Recurrent Neural Networks</a></li>
+<li><a href="https://arxiv.org/pdf/1504.00941.pdf" target="_blank" rel="external">A Simple Way to Initialize Recurrent Networks of Rectified Linear Units</a></li>
+<li><a href="http://pytorch.org/tutorials/intermediate/char_rnn_classification_tutorial.html" target="_blank" rel="external">Classifying Names with a Character-Level RNN</a></li>
+</ul>
+
+ 
+                <!-- Meta -->
+                <div class="post-meta">
+                    <hr>
+                    <br>
+                    <div class="post-tags">
+                        
+                            
+
+<a href="/tags/深度学习/">#深度学习</a> <a href="/tags/神经网络/">#神经网络</a>
+
+
+                        
+                    </div>
+                    <div class="post-date">
+                        2017 年 11 月 26 日
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <!-- Disqus Comments -->
+
+
+            </div>
+        </div>
+    </div>
+</article>
+</section>
+
+    <!-- Scripts -->
+    <!-- jQuery -->
+<script src="//cdn.bootcss.com/jquery/2.2.1/jquery.min.js"></script>
+<!-- Bootstrap -->
+<script src="//cdn.bootcss.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+	console.log('Hexo-theme-hollow designed by zchen9 🙋 © 2015-' + (new Date()).getFullYear());
+</script>
+
+    <!-- Google Analytics -->
+    
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+                    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+                m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+        ga('create', 'UA-98699464-1', 'auto');
+        ga('send', 'pageview');
+
+    </script>
+
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config("");
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+      all[i].SourceElement().parentNode.className += ' has-jax';
+    }
+  });
+</script>
+
+<script type="text/javascript" src="custom_mathjax_source">
+</script>
+<!-- End: Injected MathJax -->
+<!-- hexo-inject:end -->
+</body>
+
+</html>

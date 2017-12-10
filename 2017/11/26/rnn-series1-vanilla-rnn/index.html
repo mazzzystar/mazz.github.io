@@ -233,7 +233,24 @@ $$\frac{\partial{z_t}}{\partial{z_k}}=\prod_{j=k+1}^{t}\frac{\partial{z_j}}{\par
         ga('create', 'UA-98699464-1', 'auto');
         ga('send', 'pageview');
 
-    </script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
+    </script>
+
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script><!-- hexo-inject:begin --><!-- Begin: Injected MathJax -->
 <script type="text/x-mathjax-config">
   MathJax.Hub.Config("");
 </script>
@@ -251,8 +268,6 @@ $$\frac{\partial{z_t}}{\partial{z_k}}=\prod_{j=k+1}^{t}\frac{\partial{z_j}}{\par
 </script>
 <!-- End: Injected MathJax -->
 <!-- hexo-inject:end -->
-
-
 </body>
 
 </html>
